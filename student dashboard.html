@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Smart Evaluation System | Student Dashboard</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="dashboard.css">
+<style>
+/* Welcome banner styles */
+.welcome-banner{
+    margin:14px 0 20px 0;
+    background:linear-gradient(135deg, #5a0f1b 0%, #7a1f2d 100%);
+    padding:30px;
+    border-radius:16px;
+    color:white;
+    position:relative;
+    overflow:visible;
+    min-height:140px;
+}
+.welcome-text{font-size:32px; font-weight:800; margin-bottom:8px; color:#ffffff}
+.welcome-subtitle{font-size:13px; color:rgba(255,255,255,0.85); font-weight:500; margin-top:6px}
+.cursor{display:inline-block; width:8px; height:1.1em; background:#fff; margin-left:6px; vertical-align:middle; animation:blink 1s steps(2) infinite}
+.banner-content{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    position:relative;
+    z-index:1;
+    gap:30px;
+}
+.welcome-section{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+}
+.profile-pic-section{
+    flex-shrink:0;
+    position:relative;
+}
+.banner-decorative{font-size:60px; animation:float 3s ease-in-out infinite; flex-shrink:0}
+
+/* Profile avatar */
+.donut-chart{
+    width:160px;
+    height:160px;
+    position:relative;
+    flex-shrink:0;
+}
+.profile-avatar{
+    width:140px;
+    height:140px;
+    border-radius:50%;
+    background:#ffffff;
+    border:4px solid #ff6b6b;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    font-size:60px;
+    color:#ddd;
+    object-fit:cover;
+    cursor:pointer;
+    transition:all 0.3s;
+}
+.profile-avatar:hover{
+    border-color:#fff;
+    box-shadow:0 0 15px rgba(255,255,255,0.3);
+}
+.profile-avatar.has-image{
+    background-size:cover;
+    background-position:center;
+}
+.donut-stats{
+    display:flex;
+    flex-direction:column;
+    gap:15px;
+    min-width:150px;
+}
+.stat-item{
+    display:flex;
+    align-items:center;
+    gap:12px;
+}
+.stat-dot{
+    width:16px;
+    height:16px;
+    border-radius:3px;
+    flex-shrink:0;
+}
+.stat-text{
+    display:flex;
+    flex-direction:column;
+}
+.stat-label{
+    font-size:12px;
+    color:#333;
+    font-weight:500;
+}
+.stat-value{
+    font-size:22px;
+    font-weight:800;
+    color:#000;
+}
+
+.performance-container{
+    display:flex;
+    gap:20px;
+    align-items:flex-start;
+    margin:0 0 25px 0;
+}
+
+.cards-section{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:0;
+    width:100%;
+    background:white;
+    padding:25px;
+    border-radius:16px;
+    margin:0 0 25px 0;
+}
+
+.analysis-card{
+    background:white;
+    color:#000;
+    padding:0 0 0 25px;
+    border-radius:0;
+    display:flex;
+    gap:20px;
+    align-items:center;
+    border-left:1px solid #f0f0f0;
+}
+
+@keyframes blink{50%{opacity:0}}
+@keyframes float{0%,100%{transform:translateY(0);}50%{transform:translateY(-12px)}}
+@media(max-width:900px){
+    .welcome-text{font-size:24px}
+    .welcome-subtitle{font-size:12px}
+    .banner-content{flex-direction:column; align-items:flex-start; gap:15px}
+    .profile-pic-section{align-self:flex-end; margin-top:-60px}
+    .cards-section{grid-template-columns:1fr; gap:0; padding:25px;}
+    .analysis-card{flex-direction:column; border-left:none; padding:25px 0 0 0;}
+    .donut-chart{width:130px; height:130px}
+    .profile-avatar{width:120px; height:120px; font-size:50px}
+    .stat-value{font-size:20px}
+}
+</style>
+</head>
+
+<body>
+<div class="topbar">
+    <h2>Smart Evaluation System</h2>
+    <div class="icons">
+        
+        <button class="icon-btn" title="Profile"><i class="fas fa-user-circle"></i></button>
+        <span id="user-name" style="font-weight:600; color:#fff;">Student</span>
+    </div>
+</div>
+
+<div class="sidebar" id="sidebar">
+    <span class="sidebar-label" style="font-weight:600; font-size:16px;">MENU</span>
+    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <a class="active" onclick="showPage('dashboard',this)"><i class="fas fa-home"></i><span class="sidebar-label"> Dashboard</span></a>
+        <a onclick="showPage('exams',this)"><i class="fas fa-file-alt"></i><span class="sidebar-label"> Exams</span></a>
+        <a onclick="showPage('results',this)"><i class="fas fa-chart-bar"></i><span class="sidebar-label"> Results</span></a>
+        <a onclick="showPage('settings',this)"><i class="fas fa-cog"></i><span class="sidebar-label"> Settings</span></a>
+        <a onclick="logout()" style="color:#ff6b6b;"><i class="fas fa-sign-out-alt"></i><span class="sidebar-label"> Logout</span></a>
+    </div>
+</div>
+
+<div class="container">
+
+<!-- ===== MAIN CONTENT ===== -->
+<div class="main">
+
+<!-- DASHBOARD -->
+<div id="dashboard" class="section active">
+   
+
+    <div class="welcome-banner">
+        <div class="banner-content">
+            <div class="welcome-section">
+                <div class="welcome-text">Welcome back, <span id="welcome-name"></span></div>
+                <p class="welcome-subtitle">Always motivated & ready to give better result</p>
+            </div>
+
+            <div class="profile-pic-section">
+                <div class="profile-avatar" id="profile-avatar" title="Click to upload profile picture">
+                    <i class="fas fa-user"></i>
+                </div>
+                <input type="file" id="profile-upload" accept="image/*" style="display:none;">
+            </div>
+        </div>
+    </div>
+
+    <div class="cards-section">
+        <div style="padding:0; margin:0;">
+            <h3 style="color:#5a0f1b; margin-bottom:15px;">Student Profile</h3>
+            <p style="color:#000;"><b>Name:</b> <span id="profile-name">-</span></p><br>
+            <p style="color:#000;"><b>Admission No:</b> <span id="profile-roll">-</span></p><br>
+            <p style="color:#000;"><b>Course:</b> <span id="profile-course">-</span></p><br>
+            <p style="color:#000;"><b>Email:</b> <span id="profile-email">-</span></p><br>
+        </div>
+
+        
+    </div>
+</div>
+
+<!-- EXAMS -->
+<div id="exams" class="section">
+    <div class="section-title">Upcoming Exams</div>
+    <div class="card">
+        <table>
+            <tr>
+                <th>Exam</th>
+                <th>Date</th>
+                <th>Time</th>
+                <th>Action</th>
+            </tr>
+            <tr>
+                <td><i class="fas fa-book" style="color:#5a0f1b; margin-right:8px;"></i>DSA Test</td>
+                <td>15-Feb-2026</td>
+                <td>10:00 AM - 11:00 AM</td>
+                <td><button onclick="startExam()">Start Exam</button></td>
+            </tr>
+            <tr>
+                <td><i class="fas fa-laptop-code" style="color:#5a0f1b; margin-right:8px;"></i>Web Dev Challenge</td>
+                <td>18-Feb-2026</td>
+                <td>2:00 PM - 3:30 PM</td>
+                <td><button onclick="startExam()">Start Exam</button></td>
+            </tr>
+            <tr>
+                <td><i class="fas fa-database" style="color:#5a0f1b; margin-right:8px;"></i>Data Structures</td>
+                <td>22-Feb-2026</td>
+                <td>9:00 AM - 10:00 AM</td>
+                <td><button onclick="startExam()">Start Exam</button></td>
+            </tr>
+        </table>
+    </div>
+</div>
+
+<!-- RESULTS & HISTORY (COMBINED) -->
+<div id="results" class="section">
+    <div class="section-title">Results & Performance</div>
+    
+    <!-- FILTER BUTTONS -->
+    <div style="margin-bottom:20px; display:flex; gap:10px; flex-wrap:wrap;">
+        <button onclick="filterResults('all')" class="filter-btn active">All Exams</button>
+        <button onclick="filterResults('python')" class="filter-btn">Python Quiz</button>
+        <button onclick="filterResults('oops')" class="filter-btn">OOP Basics</button>
+        <button onclick="filterResults('webdev')" class="filter-btn">Web Dev</button>
+    </div>
+
+    <!-- PYTHON QUIZ RESULTS -->
+    <div class="result-exam hidden">
+        <div class="card">
+            <h3 style="color:#5a0f1b; margin-bottom:15px; border-bottom:2px solid #5a0f1b; padding-bottom:10px;">Python Quiz - 10-Jan-2026</h3>
+            <p><b>Score:</b> <span style="color:#27ae60; font-weight:700;">20 / 30</span> | <b>Status:</b> <span style="color:#27ae60;">PASS</span> | <b>Accuracy:</b> 76%</p>
+          
+            
+            <div style="margin-top:20px; border-top:1px solid #ddd; padding-top:15px;">
+               
+                <div style="margin-bottom:20px; padding:15px; background:#f9f9f9; border-radius:10px; border-left:4px solid #27ae60;">
+                    <p><b>Q1: What is a Python list?</b></p>
+                    <p><b style="color:#27ae60;">✓ Your Answer:</b> An ordered collection of items</p>
+                    <p><b>Correct Answer:</b> An ordered, mutable collection of items</p>
+                </div>
+                <div style="margin-bottom:20px; padding:15px; background:#f9f9f9; border-radius:10px; border-left:4px solid #27ae60;">
+                    <p><b>Q2: What is a dictionary in Python?</b></p>
+                    <p><b style="color:#27ae60;">✓ Your Answer:</b> An unordered collection of key-value pairs</p>
+                    <p><b>Correct Answer:</b> An unordered collection of key-value pairs</p>
+                </div>
+                <div style="margin-bottom:20px; padding:15px; background:#fff3cd; border-radius:10px; border-left:4px solid #ff6b6b;">
+                    <p><b>Q3: Explain list comprehension</b></p>
+                    <p><b style="color:#ff6b6b;">✗ Your Answer:</b> Using a for loop inside brackets</p>
+                    <p><b>Correct Answer:</b> A concise way to create a new list by applying an operation to items</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- OOP BASICS RESULTS -->
+    <div class="result-exam hidden">
+        <div class="card">
+            <h3 style="color:#5a0f1b; margin-bottom:15px; border-bottom:2px solid #5a0f1b; padding-bottom:10px;">OOP Basics - 05-Dec-2025</h3>
+            <p><b>Score:</b> <span style="color:#27ae60; font-weight:700;">20 / 20</span> | <b>Status:</b> <span style="color:#27ae60;">PASS</span> | <b>Accuracy:</b> 76%</p>
+            
+            <div style="margin-top:20px; border-top:1px solid #ddd; padding-top:15px;">
+                <div style="margin-bottom:20px; padding:15px; background:#f9f9f9; border-radius:10px; border-left:4px solid #27ae60;">
+                    <p><b>Q1: What is a class in OOP?</b></p>
+                    <p><b style="color:#27ae60;">✓ Your Answer:</b> A blueprint for creating objects</p>
+                    <p><b>Correct Answer:</b> A blueprint for creating objects</p>
+                </div>
+                <div style="margin-bottom:20px; padding:15px; background:#f9f9f9; border-radius:10px; border-left:4px solid #27ae60;">
+                    <p><b>Q2: Explain inheritance</b></p>
+                    <p><b style="color:#27ae60;">✓ Your Answer:</b> Passing properties from parent to child class</p>
+                    <p><b>Correct Answer:</b> Passing properties from parent to child class</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    
+
+    <!-- WEB DEV RESULTS (NOT ATTEMPTED) -->
+    <div class="result-exam hidden">
+        <div class="card">
+            <h3 style="color:#5a0f1b; margin-bottom:15px; border-bottom:2px solid #5a0f1b; padding-bottom:10px;">Web Development - 18-Feb-2026</h3>
+            <p><b>Status:</b> <span style="color:#ff6b6b; font-weight:700;">NOT ATTEMPTED</span></p>
+            
+            <div style="margin-top:20px; text-align:center; padding:30px; background:#fff3cd; border-radius:10px;">
+                <i class="fas fa-info-circle" style="font-size:32px; color:#ff6b6b; margin-bottom:10px; display:block;"></i>
+                <p style="color:#333; font-weight:600;">This exam has not been attempted yet.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ALL EXAMS SUMMARY -->
+    <div class="result-exam" id="all-results">
+        <div class="card">
+            <h3 style="color:#5a0f1b; margin-bottom:15px;">Your Exam Results</h3>
+            <table>
+                <tr>
+                    <th>Exam</th>
+                    <th>Date</th>
+                    <th>Marks</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+                <tr>
+                    <td>Python Quiz</td>
+                    <td>10-Jan-2026</td>
+                    <td>20 /30</td>
+                    <td class="pass">Pass</td>
+                    <td><a href="#" onclick="filterResults('python'); return false;" style="color:#5a0f1b; font-weight:600;">View Details</a></td>
+                </tr>
+                <tr>
+                    <td>OOP Basics</td>
+                    <td>05-Dec-2025</td>
+                    <td>20 /20</td>
+                    <td class="pass">Pass</td>
+                    <td><a href="#" onclick="filterResults('oops'); return false;" style="color:#5a0f1b; font-weight:600;">View Details</a></td>
+                </tr>
+                    
+                <tr>
+                    <td>Web Development</td>
+                    <td>18-Feb-2026</td>
+                    <td>-- / --</td>
+                    <td style="color:#ff6b6b; font-weight:700;">Not Attempted</td>
+                    <td><a href="#" onclick="filterResults('webdev'); return false;" style="color:#5a0f1b; font-weight:600;">View Details</a></td>
+                </tr>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- SETTINGS SECTION -->
+<div id="settings" class="section">
+    <div class="section-title">Settings & Profile</div>
+    <div class="card">
+        <h3 style="color:#5a0f1b; margin-bottom:20px;">Edit Your Profile</h3>
+        <form>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:20px;">
+                <div>
+                    <label style="display:block; margin-bottom:5px; font-weight:600; color:#333;">Full Name</label>
+                    <input id="settings-name" type="text" value="" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px;">
+                </div>
+                <div>
+                    <label style="display:block; margin-bottom:5px; font-weight:600; color:#333;">Student ID</label>
+                    <input id="settings-username" type="text" value="" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px;">
+                </div>
+                <div>
+                    <label style="display:block; margin-bottom:5px; font-weight:600; color:#333;">Admission No</label>
+                    <input id="settings-roll" type="text" value="" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px;">
+                </div>
+                <div>
+                    <label style="display:block; margin-bottom:5px; font-weight:600; color:#333;">Email ID</label>
+                    <input id="settings-email" type="email" value="" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px;">
+                </div>
+                <div>
+                    <label style="display:block; margin-bottom:5px; font-weight:600; color:#333;">Course</label>
+                    <input id="settings-course" type="text" value="" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px;">
+                </div>
+                <div>
+                    <label style="display:block; margin-bottom:5px; font-weight:600; color:#333;">Phone Number</label>
+                    <input id="settings-phone" type="tel" placeholder="Enter your phone number" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px;">
+                </div>
+            </div>
+            <button type="button" onclick="saveSettings()" style="background:#5a0f1b; color:white; padding:10px 25px; border:none; border-radius:8px; cursor:pointer; font-weight:600;">Save Changes</button>
+        </form>
+    </div>
+
+    <div class="card" style="margin-top:20px;">
+        <h3 style="color:#5a0f1b; margin-bottom:20px;">Change Password</h3>
+        <form>
+            <div>
+                <label style="display:block; margin-bottom:5px; font-weight:600; color:#333;">Current Password</label>
+                <input id="settings-current-password" type="password" placeholder="Enter current password" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px; margin-bottom:15px;">
+            </div>
+            <div>
+                <label style="display:block; margin-bottom:5px; font-weight:600; color:#333;">New Password</label>
+                <input id="settings-new-password" type="password" placeholder="Enter new password" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px; margin-bottom:15px;">
+            </div>
+            <div>
+                <label style="display:block; margin-bottom:5px; font-weight:600; color:#333;">Confirm Password</label>
+                <input id="settings-confirm-password" type="password" placeholder="Confirm new password" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px; margin-bottom:15px;">
+            </div>
+            <button type="button" onclick="changePassword()" style="background:#5a0f1b; color:white; padding:10px 25px; border:none; border-radius:8px; cursor:pointer; font-weight:600;">Update Password</button>
+        </form>
+    </div>
+</div>
+
+</div>
+</div>
+
+<footer>
+© Smart Evaluation System
+</footer>
+
+<script>
+function showPage(pageId, element){
+    document.querySelectorAll('.section').forEach(sec => {
+        sec.classList.remove('active');
+    });
+    document.getElementById(pageId).classList.add('active');
+
+    if(element){
+        document.querySelectorAll('.sidebar a').forEach(a => {
+            a.classList.remove('active');
+        });
+        element.classList.add('active');
+    }
+}
+
+function filterResults(exam){
+    const exams = document.querySelectorAll('.result-exam');
+    exams.forEach(e => e.classList.add('hidden'));
+    
+    const buttons = document.querySelectorAll('.filter-btn');
+    buttons.forEach(b => b.classList.remove('active'));
+    
+    if(exam === 'all'){
+        document.getElementById('all-results').classList.remove('hidden');
+        buttons[0].classList.add('active');
+    } else if(exam === 'python'){
+        exams[0].classList.remove('hidden');
+        buttons[1].classList.add('active');
+    } else if(exam === 'oops'){
+        exams[1].classList.remove('hidden');
+        buttons[2].classList.add('active');
+    } else if(exam === 'webdev'){
+        exams[2].classList.remove('hidden');
+        buttons[3].classList.add('active');
+    }
+}
+
+
+
+async function logout(){
+    try{
+        await fetch('/api/student/logout',{method:'POST',credentials:'same-origin'});
+    }catch(e){}
+    window.location.href = "student portal.html";
+}
+
+// Welcome typing animation + Performance stats + Profile picture
+(function(){
+    document.addEventListener('DOMContentLoaded', function(){
+        // Profile picture upload handler
+        const profileAvatar = document.getElementById('profile-avatar');
+        const profileUpload = document.getElementById('profile-upload');
+        
+        if(profileAvatar && profileUpload){
+            // Load saved profile picture
+            const savedPhoto = localStorage.getItem('studentProfilePic');
+            if(savedPhoto){
+                profileAvatar.style.backgroundImage = `url('${savedPhoto}')`;
+                profileAvatar.classList.add('has-image');
+                profileAvatar.innerHTML = '';
+            }
+            
+            profileAvatar.addEventListener('click', () => profileUpload.click());
+            profileUpload.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if(file){
+                    const reader = new FileReader();
+                    reader.onload = async (event) => {
+                        const imageData = event.target.result;
+                        localStorage.setItem('studentProfilePic', imageData);
+                        profileAvatar.style.backgroundImage = `url('${imageData}')`;
+                        profileAvatar.classList.add('has-image');
+                        profileAvatar.innerHTML = '';
+                        // send to server so it's persisted
+                        try{
+                            await fetch('/api/student/update', {
+                                method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'},
+                                body: JSON.stringify({photo: imageData})
+                            });
+                        }catch(err){ console.warn('could not upload photo', err); }
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+        }
+
+        // Typing animation function (will be called after profile loads)
+        function startTypingAnimation(name) {
+            const display = document.getElementById('welcome-name');
+            if(!display) return;
+            
+            let i = 0;
+            function type(){
+                if(i <= name.length){
+                    display.textContent = name.slice(0, i);
+                    i++;
+                    setTimeout(type, 120);
+                } else {
+                    setTimeout(()=> erase(), 2000);
+                }
+            }
+            function erase(){
+                if(i >= 0){
+                    display.textContent = name.slice(0, i);
+                    i--;
+                    setTimeout(erase, 50);
+                } else {
+                    i = 0;
+                    setTimeout(type, 400);
+                }
+            }
+            type();
+        }
+
+        // Calculate performance stats
+        const resultsTable = document.querySelector('table');
+        if(!resultsTable) return;
+
+        // fetch profile details and populate fields
+        async function loadProfile(){
+            try{
+                const res = await fetch('/api/student/me', {credentials:'same-origin'});
+                if(!res.ok) throw new Error('not logged in');
+                const data = await res.json();
+                document.getElementById('user-name').textContent = data.username;
+                document.getElementById('profile-name').textContent = data.name || '';
+                document.getElementById('profile-roll').textContent = data.roll_number || '';
+                document.getElementById('profile-course').textContent = data.department || '';
+                document.getElementById('profile-email').textContent = data.email || '';
+
+                // Start typing animation with the loaded username
+                startTypingAnimation(data.username);
+
+                // fill settings inputs
+                document.getElementById('settings-name').value = data.name || '';
+                document.getElementById('settings-username').value = data.username || '';
+                document.getElementById('settings-roll').value = data.roll_number || '';
+                document.getElementById('settings-email').value = data.email || '';
+                document.getElementById('settings-course').value = data.department || '';
+                document.getElementById('settings-phone').value = data.phone || '';
+
+                if(data.photo){
+                    localStorage.setItem('studentProfilePic', data.photo);
+                    const ava = document.getElementById('profile-avatar');
+                    ava.style.backgroundImage = `url('${data.photo}')`;
+                    ava.classList.add('has-image');
+                    ava.innerHTML = '';
+                }
+            }catch(e){
+                // redirect to login if unauthenticated
+                window.location.href = 'student portal.html';
+            }
+        }
+
+        loadProfile();
+
+        window.saveSettings = async function(){
+            const payload = {
+                name: document.getElementById('settings-name').value.trim(),
+                username: document.getElementById('settings-username').value.trim(),
+                roll_number: document.getElementById('settings-roll').value.trim(),
+                email: document.getElementById('settings-email').value.trim(),
+                department: document.getElementById('settings-course').value.trim(),
+                phone: document.getElementById('settings-phone').value.trim(),
+                photo: localStorage.getItem('studentProfilePic') || ''
+            };
+            try{
+                const res = await fetch('/api/student/update',{
+                    method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if(!res.ok){ alert(data.message||'Update failed'); return; }
+                alert('Profile updated');
+                loadProfile();
+            }catch(err){ alert('Error: '+err); }
+        };
+
+        window.changePassword = async function(){
+            const current = document.getElementById('settings-current-password').value;
+            const nw = document.getElementById('settings-new-password').value;
+            const conf = document.getElementById('settings-confirm-password').value;
+            if(nw !== conf){ alert('New passwords do not match'); return; }
+            try{
+                const res = await fetch('/api/student/change_password',{
+                    method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'},
+                    body: JSON.stringify({current_password: current, new_password: nw})
+                });
+                const data = await res.json();
+                if(!res.ok){ alert(data.message||'Password change failed'); return; }
+                alert('Password changed');
+            }catch(err){ alert('Error: '+err); }
+        };
+    });
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Smart Evaluation System | Teacher Dashboard</title>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="dashboard.css">
+    <link rel="stylesheet" href="teach.css">
+</head>
+<body>
+
+<!-- ===== TOP BAR ===== -->
+<div class="topbar">
+    <h2>Smart Evaluation System</h2>
+    <div class="icons">
+        <button class="icon-btn"><i class="fas fa-user-circle"></i></button>
+        <span id="user-name" style="font-weight:600; color:#fff;">Dr. Kumar</span>
+    </div>
+</div>
+
+<div class="sidebar" id="sidebar">
+    <span class="sidebar-label" style="font-weight:600; font-size:16px;">MENU</span>
+    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <a class="active" onclick="showPage('dashboard',this)"><i class="fas fa-home"></i><span class="sidebar-label"> Dashboard</span></a>
+        <a onclick="showPage('students',this)"><i class="fas fa-users"></i><span class="sidebar-label"> Students</span></a>
+        <a onclick="showPage('exams',this)"><i class="fas fa-file-alt"></i><span class="sidebar-label"> Exams</span></a>
+        <a onclick="showPage('questionbank',this)"><i class="fas fa-book"></i><span class="sidebar-label"> Question Bank</span></a>
+         <a onclick="showPage('settings',this)"><i class="fas fa-cog"></i><span class="sidebar-label"> Settings</span></a>
+        <a onclick="logout()" style="color:#ff6b6b;"><i class="fas fa-sign-out-alt"></i><span class="sidebar-label"> Logout</span></a>
+    </div>
+</div>
+
+<div class="container">
+
+<!-- ===== MAIN CONTENT ===== -->
+<div class="main">
+
+<!-- ===== DASHBOARD ===== -->
+<div id="dashboard" class="section active">
+    <div class="welcome-banner">
+        <div class="banner-content">
+            <div class="welcome-section">
+                <div class="welcome-text">Welcome back, <span id="welcome-name"></span></div>
+                <p class="welcome-subtitle">Always motivated & ready to give better result</p>
+            </div>
+
+            <div class="profile-pic-section">
+                <div class="profile-avatar" id="profile-avatar" title="Click to upload profile picture">
+                    <i class="fas fa-user"></i>
+                </div>
+                <input type="file" id="profile-upload" accept="image/*" style="display:none;">
+            </div>
+        </div>
+    </div>
+
+    <div class="cards-section">
+        <div style="padding:0; margin:0;">
+            <h3 style="color:#5a0f1b; margin-bottom:15px;">Teacher Profile</h3>
+            <p><b>Name:</b> <span id="dash-name"></span></p><br>
+<p><b>Department:</b> <span id="dash-department"></span></p><br>
+<p><b>Email:</b> <span id="dash-email"></span></p><br>
+<p><b>Role:</b> <span id="dash-role"></span></p><br>
+        </div>
+    </div>
+
+   
+</div>
+<!-- SETTINGS SECTION -->
+<div id="settings" class="section">
+    <div class="section-title">Settings & Profile</div>
+    <div class="card">
+        <h3 style="color:#5a0f1b; margin-bottom:20px;">Edit Your Profile</h3>
+        <form>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:20px;">
+                <div>
+                    <label style="display:block; margin-bottom:5px; font-weight:600; color:#333;">Full Name</label>
+                    <input id="settings-name" type="text" value="" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px;">
+                </div>
+                <div>
+                    <label style="display:block; margin-bottom:5px; font-weight:600; color:#333;">Teacher ID</label>
+                    <input id="settings-username" type="text" value="" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px;">
+                </div>
+                
+                <div>
+                    <label style="display:block; margin-bottom:5px; font-weight:600; color:#333;">Email ID</label>
+                    <input id="settings-email" type="email" value="" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px;">
+                </div>
+                <div>
+                    <label style="display:block; margin-bottom:5px; font-weight:600; color:#333;">Department</label>
+                    <input id="settings-department" type="text" value="" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px;">
+                </div>
+                <div>
+                    <label style="display:block; margin-bottom:5px; font-weight:600; color:#333;">Phone Number</label>
+                    <input id="settings-phone" type="tel" placeholder="Enter your phone number" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px;">
+                </div>
+            </div>
+            <button type="button" onclick="saveSettings()" style="background:#5a0f1b; color:white; padding:10px 25px; border:none; border-radius:8px; cursor:pointer; font-weight:600;">Save Changes</button>
+        </form>
+    </div>
+
+    <div class="card" style="margin-top:20px;">
+        <h3 style="color:#5a0f1b; margin-bottom:20px;">Change Password</h3>
+        <form>
+            <div>
+                <label style="display:block; margin-bottom:5px; font-weight:600; color:#333;">Current Password</label>
+                <input id="settings-current-password" type="password" placeholder="Enter current password" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px; margin-bottom:15px;">
+            </div>
+            <div>
+                <label style="display:block; margin-bottom:5px; font-weight:600; color:#333;">New Password</label>
+                <input id="settings-new-password" type="password" placeholder="Enter new password" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px; margin-bottom:15px;">
+            </div>
+            <div>
+                <label style="display:block; margin-bottom:5px; font-weight:600; color:#333;">Confirm Password</label>
+                <input id="settings-confirm-password" type="password" placeholder="Confirm new password" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px; margin-bottom:15px;">
+            </div>
+            <button type="button" onclick="changePassword()" style="background:#5a0f1b; color:white; padding:10px 25px; border:none; border-radius:8px; cursor:pointer; font-weight:600;">Update Password</button>
+        </form>
+    </div>
+</div>
+
+</div>
+</div>
+
+
+<!-- STUDENTS -->
+<div id="students" class="section">
+    <div class="section-title">Students List</div>
+
+    <!-- NEW HEADING -->
+    <h3 id="studentHeading">Registered Students</h3>
+
+    <div class="card">
+        <table>
+            <thead>
+                <tr>
+                    <th>Roll Number</th>
+                    <th>Name</th>
+                    <th>Department</th>
+                    <th>Semester</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+    </div>
+    
+</div>
+
+<!-- EXAMS -->
+<div id="exams" class="section">
+    <div class="section-title">Exams Management</div>
+    
+    <!-- TAB NAVIGATION -->
+    <div style="margin-bottom:20px; display:flex; gap:10px; flex-wrap:wrap;">
+        <button onclick="switchExamTab('view')" class="exam-tab-btn active" id="tab-view">View Exams</button>
+        <button onclick="switchExamTab('create')" class="exam-tab-btn" id="tab-create">Create Exam</button>
+        <button onclick="switchExamTab('report')" class="exam-tab-btn" id="tab-report">Exam Report</button>
+    </div>
+
+    <!-- VIEW EXAMS TAB -->
+    <div id="exam-view" class="exam-tab-content active">
+        <div class="card">
+            <h3 style="color:#5a0f1b; margin-bottom:15px;">All Exams</h3>
+            <div id="examsListContainer">
+                <!-- Exams will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- CREATE EXAM TAB -->
+    <div id="exam-create" class="exam-tab-content">
+        <div class="card">
+            <h3 style="color:#5a0f1b; margin-bottom:20px;">Create New Exam</h3>
+            <form id="createExamForm" style="display:flex; flex-direction:column; gap:20px;">
+                
+                <!-- Exam Name -->
+                <div>
+                    <label style="display:block; margin-bottom:8px; font-weight:600; color:#333;">Exam Name <span style="color:#ff6b6b;">*</span></label>
+                    <input type="text" id="examName" placeholder="Enter exam name" required style="width:100%; padding:12px; border:1px solid #ddd; border-radius:8px; font-size:14px;">
+                </div>
+
+                <!-- Select Students -->
+                <div>
+                    <label style="display:block; margin-bottom:8px; font-weight:600; color:#333;">Select Students <span style="color:#ff6b6b;">*</span></label>
+                    <div style="border:1px solid #ddd; border-radius:8px; padding:15px; background:#f9f9f9; max-height:250px; overflow-y:auto;">
+                        <div style="margin-bottom:10px;">
+                            <input type="checkbox" id="selectAllStudents" onchange="toggleAllStudents()">
+                            <label for="selectAllStudents" style="margin-left:8px; font-weight:600; cursor:pointer;">Select All Students</label>
+                        </div>
+                        <hr style="margin-bottom:10px;">
+                        <div id="studentCheckboxes">
+                            <div><input type="checkbox" class="student-checkbox" value="23CS201" data-name="Gayathri M R"> <label style="margin-left:8px; cursor:pointer;">23CS201 - Gayathri M R (B.Tech CSE)</label></div>
+                            <div><input type="checkbox" class="student-checkbox" value="23CS202" data-name="John Doe"> <label style="margin-left:8px; cursor:pointer;">23CS202 - John Doe (B.Tech CSE)</label></div>
+                            <div><input type="checkbox" class="student-checkbox" value="23CS203" data-name="Alice Smith"> <label style="margin-left:8px; cursor:pointer;">23CS203 - Alice Smith (B.Tech CSE)</label></div>
+                            <div><input type="checkbox" class="student-checkbox" value="23CS204" data-name="Bob Johnson"> <label style="margin-left:8px; cursor:pointer;">23CS204 - Bob Johnson (B.Tech CSE)</label></div>
+                        </div>
+                    </div>
+                    <p id="selectedCount" style="margin-top:8px; color:#666; font-size:13px;">0 students selected</p>
+                </div>
+
+                <!-- Exam Availability Times (Start & End Time) -->
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px;">
+                    <div>
+                        <label style="display:block; margin-bottom:8px; font-weight:600; color:#333;">Exam Start Time <span style="color:#ff6b6b;">*</span></label>
+                        <p style="font-size:12px; color:#666; margin-bottom:5px;">When students can start writing the exam</p>
+                        <input type="datetime-local" id="examStartTime" required style="width:100%; padding:12px; border:1px solid #ddd; border-radius:8px; font-size:14px;">
+                    </div>
+                    <div>
+                        <label style="display:block; margin-bottom:8px; font-weight:600; color:#333;">Exam End Time <span style="color:#ff6b6b;">*</span></label>
+                        <p style="font-size:12px; color:#666; margin-bottom:5px;">After this time, no new submissions allowed</p>
+                        <input type="datetime-local" id="examEndTime" required style="width:100%; padding:12px; border:1px solid #ddd; border-radius:8px; font-size:14px;">
+                    </div>
+                </div>
+
+                <!-- Exam Duration (Time to Complete) -->
+                <div>
+                    <label style="display:block; margin-bottom:8px; font-weight:600; color:#333;">Time Limit to Complete Exam (in minutes) <span style="color:#ff6b6b;">*</span></label>
+                    <p style="font-size:12px; color:#666; margin-bottom:5px;">Duration to complete exam once started (e.g., 20 mins)</p>
+                    <input type="number" id="examDuration" placeholder="20" min="1" required style="width:100%; padding:12px; border:1px solid #ddd; border-radius:8px; font-size:14px;">
+                </div>
+
+                <!-- Number of Questions -->
+                <div>
+                    <label style="display:block; margin-bottom:8px; font-weight:600; color:#333;">Number of Questions <span style="color:#ff6b6b;">*</span></label>
+                    <input type="number" id="examQuestions" placeholder="10" min="1" required style="width:100%; padding:12px; border:1px solid #ddd; border-radius:8px; font-size:14px;">
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" onclick="createExam()" style="background:#5a0f1b; color:white; padding:12px 25px; border:none; border-radius:8px; cursor:pointer; font-weight:600; align-self:flex-start;">Create Exam</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- EXAM REPORT TAB -->
+    <div id="exam-report" class="exam-tab-content">
+        <div class="card">
+            <h3 style="color:#5a0f1b; margin-bottom:15px;">View Exam Report</h3>
+            <select id="examReportSelect" onchange="loadExamReport()" style="width:100%; padding:12px; border:1px solid #ddd; border-radius:8px; margin-bottom:20px; font-size:14px;">
+                <option value="">-- Select an exam --</option>
+            </select>
+
+            <!-- Report Content -->
+            <div id="reportContent" style="display:none;">
+                <h4 style="color:#5a0f1b; margin-bottom:15px; border-bottom:2px solid #5a0f1b; padding-bottom:10px;">Student Marks</h4>
+                
+                <div id="reportStudentList" style="display:flex; flex-direction:column; gap:12px;">
+                    <!-- Student cards will be populated here -->
+                </div>
+
+                <!-- Student Answer Details -->
+                <div id="answerDetails" style="display:none; margin-top:20px; padding:20px; background:#f9f9f9; border-radius:8px; border-left:4px solid #5a0f1b;">
+                    <button onclick="closeAnswerDetails()" style="background:#999; color:white; padding:8px 15px; margin-bottom:15px; border:none; border-radius:5px; cursor:pointer; font-weight:600;">← Back</button>
+                    
+                    <h4 style="color:#5a0f1b; margin-bottom:10px;">Student: <span id="answerStudentName"></span></h4>
+                    <p style="margin-bottom:15px; color:#666;"><b>Score:</b> <span id="answerStudentScore"></span></p>
+                    
+                    <div id="answersContainer" style="display:flex; flex-direction:column; gap:15px;">
+                        <!-- Question answers will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- QUESTION BANK -->
+<div id="questionbank" class="section">
+    <div class="section-title">Question Bank</div>
+    <div class="card">
+        <p>Total Questions: <b>350</b></p><br>
+        <button>Add New Question</button>
+    </div>
+</div>
+
+</div>
+</div>
+
+<footer>© Smart Evaluation System</footer>
+
+<script>
+// Initialize exams data from localStorage
+let examsData = JSON.parse(localStorage.getItem('examsData')) || [];
+
+// Add sample exam data if none exist
+if(examsData.length === 0){
+    const sampleExam = {
+        id: 1707330000000,
+        name: "Python Fundamentals Quiz",
+        startTime: "2026-02-10T10:00",
+        endTime: "2026-02-10T12:00",
+        duration: 20,
+        questions: 5,
+        active: true,
+        students: [
+            { id: '23CS201', name: 'Gayathri M R' },
+            { id: '23CS202', name: 'John Doe' },
+            { id: '23CS203', name: 'Alice Smith' }
+        ],
+        createdDate: new Date().toLocaleString(),
+        studentAnswers: {
+            '23CS201': {
+                name: 'Gayathri M R',
+                status: 'completed',
+                score: 4,
+                startTime: '2026-02-10T10:05',
+                endTime: '2026-02-10T10:25',
+                answers: []
+            },
+            '23CS202': {
+                name: 'John Doe',
+                status: 'in-progress',
+                score: 0,
+                startTime: '2026-02-10T10:10',
+                endTime: null,
+                answers: []
+            },
+            '23CS203': {
+                name: 'Alice Smith',
+                status: 'not-attempted',
+                score: 0,
+                startTime: null,
+                endTime: null,
+                answers: []
+            }
+        }
+    };
+    examsData.push(sampleExam);
+    localStorage.setItem('examsData', JSON.stringify(examsData));
+}
+
+function showPage(pageId, element){
+    document.querySelectorAll('.section').forEach(sec => {
+        sec.classList.remove('active');
+    });
+    document.getElementById(pageId).classList.add('active');
+
+    if(element){
+        document.querySelectorAll('.sidebar a').forEach(a => {
+            a.classList.remove('active');
+        });
+        element.classList.add('active');
+    }
+}
+
+// EXAM TAB SWITCHING
+function switchExamTab(tab){
+    // Hide all tabs
+    document.querySelectorAll('.exam-tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.exam-tab-btn').forEach(b => b.classList.remove('active'));
+    
+    // Show selected tab
+    document.getElementById('exam-' + tab).classList.add('active');
+    document.getElementById('tab-' + tab).classList.add('active');
+}
+
+// STUDENT SELECTION
+function toggleAllStudents(){
+    const checkboxes = document.querySelectorAll('.student-checkbox');
+    const selectAllCheckbox = document.getElementById('selectAllStudents');
+    
+    checkboxes.forEach(cb => {
+        cb.checked = selectAllCheckbox.checked;
+    });
+    
+    updateSelectedCount();
+}
+
+function updateSelectedCount(){
+    const checkboxes = document.querySelectorAll('.student-checkbox:checked');
+    document.getElementById('selectedCount').textContent = checkboxes.length + ' students selected';
+}
+
+// Add change listener to all student checkboxes
+document.addEventListener('DOMContentLoaded', function(){
+    document.querySelectorAll('.student-checkbox').forEach(cb => {
+        cb.addEventListener('change', updateSelectedCount);
+    });
+});
+
+// CREATE EXAM
+function createExam(){
+    const examName = document.getElementById('examName').value.trim();
+    const startTime = document.getElementById('examStartTime').value;
+    const endTime = document.getElementById('examEndTime').value;
+    const duration = document.getElementById('examDuration').value;
+    const questions = document.getElementById('examQuestions').value;
+    
+    const selectedStudents = Array.from(document.querySelectorAll('.student-checkbox:checked'))
+        .map(cb => ({ id: cb.value, name: cb.dataset.name }));
+    
+    // Validation
+    if(!examName){
+        alert('Please enter exam name');
+        return;
+    }
+    if(selectedStudents.length === 0){
+        alert('Please select at least one student');
+        return;
+    }
+    if(!startTime || !endTime){
+        alert('Please set start and end times');
+        return;
+    }
+    if(!duration){
+        alert('Please set exam duration');
+        return;
+    }
+    if(!questions){
+        alert('Please set number of questions');
+        return;
+    }
+    
+    if(new Date(startTime) >= new Date(endTime)){
+        alert('End time must be after start time');
+        return;
+    }
+    
+    // Create exam object
+    const newExam = {
+        id: Date.now(),
+        name: examName,
+        startTime: startTime,
+        endTime: endTime,
+        duration: parseInt(duration),
+        questions: parseInt(questions),
+        active: false,
+        students: selectedStudents,
+        createdDate: new Date().toLocaleString(),
+        studentAnswers: {}
+    };
+    
+    // Initialize student answers
+    selectedStudents.forEach(student => {
+        newExam.studentAnswers[student.id] = {
+            name: student.name,
+            status: 'not-attempted',
+            answers: [],
+            score: 0,
+            startTime: null,
+            endTime: null
+        };
+    });
+    
+    // Save to localStorage
+    examsData.push(newExam);
+    localStorage.setItem('examsData', JSON.stringify(examsData));
+    
+    // Update view and dropdown
+    updateExamsList();
+    populateExamDropdown();
+    
+    // Reset form
+    document.getElementById('createExamForm').reset();
+    document.getElementById('selectAllStudents').checked = false;
+    updateSelectedCount();
+    
+    alert('✓ Exam created successfully!');
+    switchExamTab('view');
+}
+
+// UPDATE EXAMS LIST VIEW
+function updateExamsList(){
+    if(examsData.length === 0){
+        document.getElementById('examsListContainer').innerHTML = '<p style="color:#666; padding:20px;">No exams created yet. <a href="#" onclick="switchExamTab(\'create\'); return false;" style="color:#5a0f1b; font-weight:600;">Create an exam</a></p>';
+        return;
+    }
+    
+    let examsHTML = '';
+    examsData.forEach(exam => {
+        if(exam.active === false){
+            // Inactive exam - only activation button
+            examsHTML += `
+            <div style="padding:15px; margin-bottom:12px; background:#f9f9f9; border-radius:8px; border-left:4px solid #999; display:flex; justify-content:space-between; align-items:center;">
+                <div style="flex:1;">
+                    <p style="margin:0; color:#666; font-weight:600;">${exam.name}</p>
+                    <p style="margin:5px 0 0 0; color:#999; font-size:13px;">Exam Start: ${new Date(exam.startTime).toLocaleString()}</p>
+                </div>
+                <button onclick="activateExam(${exam.id})" style="background:#27ae60; color:white; padding:8px 15px; border:none; border-radius:6px; cursor:pointer; font-weight:600; white-space:nowrap;">Activate</button>
+            </div>`;
+        } else {
+            // Active exam - show all details and action buttons
+            examsHTML += `
+            <div style="padding:15px; margin-bottom:12px; background:#f0fdf4; border-radius:8px; border-left:4px solid #27ae60; display:flex; justify-content:space-between; align-items:center;">
+                <div style="flex:1;">
+                    <p style="margin:0; color:#333; font-weight:600;">${exam.name}</p>
+                    <p style="margin:5px 0 0 0; color:#666; font-size:13px;">Start: ${new Date(exam.startTime).toLocaleString()} | End: ${new Date(exam.endTime).toLocaleString()} | Duration: ${exam.duration} mins</p>
+                    <p style="margin:5px 0 0 0; color:#27ae60; font-weight:600; font-size:13px;">Status: Active</p>
+                </div>
+                <div style="display:flex; gap:8px; white-space:nowrap;">
+                    <button onclick="deactivateExam(${exam.id})" style="background:#f39c12; color:white; padding:8px 12px; border:none; border-radius:6px; cursor:pointer; font-weight:600;">Deactivate</button>
+                    <button onclick="deleteExam(${exam.id})" style="background:#ff6b6b; color:white; padding:8px 12px; border:none; border-radius:6px; cursor:pointer; font-weight:600;">Delete</button>
+                </div>
+            </div>`;
+        }
+    });
+    
+    document.getElementById('examsListContainer').innerHTML = examsHTML;
+}
+
+function deleteExam(examId){
+    if(confirm('Are you sure you want to delete this exam?')){
+        examsData = examsData.filter(e => e.id !== examId);
+        localStorage.setItem('examsData', JSON.stringify(examsData));
+        updateExamsList();
+        populateExamDropdown();
+        alert('✓ Exam deleted successfully!');
+    }
+}
+
+function activateExam(examId){
+    const exam = examsData.find(e => e.id === examId);
+    if(exam){
+        exam.active = true;
+        localStorage.setItem('examsData', JSON.stringify(examsData));
+        updateExamsList();
+        populateExamDropdown();
+        alert('✓ Exam activated successfully!');
+    }
+}
+
+function deactivateExam(examId){
+    const exam = examsData.find(e => e.id === examId);
+    if(exam){
+        exam.active = false;
+        localStorage.setItem('examsData', JSON.stringify(examsData));
+        updateExamsList();
+        populateExamDropdown();
+        alert('✓ Exam deactivated successfully!');
+    }
+}
+
+// EXAM REPORT
+function loadExamReport(){
+    const examId = document.getElementById('examReportSelect').value;
+    
+    if(!examId){
+        document.getElementById('reportContent').style.display = 'none';
+        return;
+    }
+    
+    const exam = examsData.find(e => e.id == parseInt(examId));
+    if(!exam){
+        alert('Exam not found');
+        return;
+    }
+    
+    // Generate student cards
+    let studentCardsHTML = '';
+    Object.keys(exam.studentAnswers).forEach(studentId => {
+        const student = exam.studentAnswers[studentId];
+        
+        if(student.status === 'not-attempted'){
+            studentCardsHTML += `
+            <div style="padding:15px; background:#fff3cd; border-radius:8px; border-left:4px solid #ff6b6b; display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <p style="margin:0; color:#333; font-weight:600;">${student.name}</p>
+                    <p style="margin:5px 0 0 0; color:#ff6b6b; font-weight:700; font-size:14px;">Not Attempted</p>
+                </div>
+            </div>`;
+        } else if(student.status === 'completed'){
+            const percentage = Math.round((student.score / exam.questions) * 100);
+            studentCardsHTML += `
+            <div style="padding:15px; background:#f0f5f0; border-radius:8px; border-left:4px solid #27ae60; display:flex; justify-content:space-between; align-items:center;">
+                <div style="flex:1;">
+                    <p style="margin:0; color:#333; font-weight:600;">${student.name}</p>
+                    <p style="margin:5px 0 0 0; color:#666; font-size:13px;">Score: <b style="color:#27ae60;">${student.score}/${exam.questions}</b> (${percentage}%)</p>
+                </div>
+                <button onclick="viewStudentAnswers('${studentId}')" style="background:#5a0f1b; color:white; padding:8px 15px; border:none; border-radius:6px; cursor:pointer; font-weight:600; white-space:nowrap;">View Details</button>
+            </div>`;
+        }
+    });
+    
+    document.getElementById('reportStudentList').innerHTML = studentCardsHTML;
+    document.getElementById('reportContent').style.display = 'block';
+    document.getElementById('answerDetails').style.display = 'none';
+}
+
+function viewStudentAnswers(studentId){
+    const examId = document.getElementById('examReportSelect').value;
+    const exam = examsData.find(e => e.id == parseInt(examId));
+    
+    if(!exam){
+        alert('Exam not found');
+        return;
+    }
+    
+    const student = exam.studentAnswers[studentId];
+    if(!student || student.status !== 'completed'){
+        alert('Student has not completed the exam');
+        return;
+    }
+    
+    document.getElementById('answerStudentName').textContent = student.name;
+    document.getElementById('answerStudentScore').textContent = student.score + ' / ' + exam.questions;
+    
+    // Generate answer details
+    let answersHTML = '';
+    
+    // Demo questions with answers
+    const demoQuestions = [
+        {
+            question: "To use a function like sqrt() from a module, we first '______' the module.",
+            studentAnswer: "import",
+            correctAnswer: "import",
+            isCorrect: true
+        },
+        {
+            question: "________errors result when the programmer incorrectly specifies the upper bound of the loop",
+            studentAnswer: "Off-by-one",
+            correctAnswer: "Off-by-one",
+            isCorrect: true
+        },
+        {
+            question: "rows = 4\nfor i in range(1, rows+1):\n    for j in range(______ ):\n        print(\" \", end=\"\")\n    for k in range(1, i+1):\n        print(k, end=\"\")\n    print()",
+            studentAnswer: "1, rows",
+            correctAnswer: "1, rows-i+1",
+            isCorrect: false
+        },
+        {
+            question: "Fill in the code below to get the output as: 4 3 2 1  3 2 1  2 1  1\nn = 4\nfor i in range(n, 0, -1):\n    for j in range(_____): \n        print(j, end=\" \")\n    print()",
+            studentAnswer: "i, 0, -1",
+            correctAnswer: "i, 0, -1",
+            isCorrect: true
+        },
+        {
+            question: "Fill in the code to find sum of digits of a number:\nnum = 123\nsum = 0\nwhile num > 0:\n    sum += ________\n    num = num / 10\nprint(\"Sum of digits =\", sum)",
+            studentAnswer: "num % 10",
+            correctAnswer: "num % 10",
+            isCorrect: true
+        }
+    ];
+    
+    demoQuestions.forEach((question, index) => {
+        const isCorrect = question.isCorrect;
+        const borderColor = isCorrect ? '#27ae60' : '#ff6b6b';
+        const statusSymbol = isCorrect ? '✓' : '✗';
+        const statusColor = isCorrect ? '#27ae60' : '#ff6b6b';
+        const bgColor = isCorrect ? '#f0fdf4' : '#fef2f2';
+        
+        answersHTML += `
+        <div style="padding:15px; background:${bgColor}; border-radius:8px; border-left:4px solid ${borderColor};">
+            <p style="margin:0 0 10px 0; font-weight:600; color:#333;"><b>Q${index + 1}:</b> ${question.question}</p>
+            <p style="margin:8px 0; color:${statusColor}; font-weight:600;"><b>${statusSymbol} Your Answer:</b> ${question.studentAnswer}</p>
+            <p style="margin:8px 0 0 0; color:#333;"><b>Correct Answer:</b> ${question.correctAnswer}</p>
+        </div>`;
+    });
+    
+    document.getElementById('answersContainer').innerHTML = answersHTML;
+    document.getElementById('answerDetails').style.display = 'block';
+    document.getElementById('reportStudentList').style.display = 'none';
+}
+
+function closeAnswerDetails(){
+    document.getElementById('answerDetails').style.display = 'none';
+    document.getElementById('reportStudentList').style.display = 'flex';
+}
+
+// Update exam dropdown
+function populateExamDropdown(){
+    const select = document.getElementById('examReportSelect');
+    select.innerHTML = '<option value="">-- Select an exam --</option>';
+    
+    examsData.forEach(exam => {
+        if(exam.active){
+            const option = document.createElement('option');
+            option.value = exam.id;
+            option.textContent = exam.name + ' (' + new Date(exam.startTime).toLocaleDateString() + ')';
+            select.appendChild(option);
+        }
+    });
+}
+
+async function logout(){
+    try{
+        await fetch('/api/teacher/logout',{method:'POST',credentials:'same-origin'});
+    }catch(e){}
+    window.location.href = "admin portal.html";
+}
+
+// Typing animation function (will be called after profile loads)
+function startTypingAnimation(name) {
+    const display = document.getElementById('welcome-name');
+    if(!display) return;
+    
+    let i = 0;
+    function type(){
+        if(i <= name.length){
+            display.textContent = name.slice(0, i);
+            i++;
+            setTimeout(type, 120);
+        } else {
+            setTimeout(()=> erase(), 2000);
+        }
+    }
+    function erase(){
+        if(i >= 0){
+            display.textContent = name.slice(0, i);
+            i--;
+            setTimeout(erase, 50);
+        } else {
+            i = 0;
+            setTimeout(type, 400);
+        }
+    }
+    type();
+}
+document.addEventListener("DOMContentLoaded", function() {
+    loadStudentsFromBackend();
+});
+// Welcome typing animation + Profile picture upload
+(function(){
+    document.addEventListener('DOMContentLoaded', function(){
+        // Update exams list and dropdown on page load
+        updateExamsList();
+        populateExamDropdown();
+        
+        // Profile picture upload handler
+        const profileAvatar = document.getElementById('profile-avatar');
+        const profileUpload = document.getElementById('profile-upload');
+        
+        if(profileAvatar && profileUpload){
+            // Load saved profile picture
+            const savedPhoto = localStorage.getItem('teacherProfilePic');
+            if(savedPhoto){
+                profileAvatar.style.backgroundImage = `url('${savedPhoto}')`;
+                profileAvatar.classList.add('has-image');
+                profileAvatar.innerHTML = '';
+            }
+            
+            profileAvatar.addEventListener('click', () => profileUpload.click());
+            profileUpload.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if(file){
+                    const reader = new FileReader();
+                    reader.onload = async (event) => {
+                        const imageData = event.target.result;
+                        localStorage.setItem('teacherProfilePic', imageData);
+                        profileAvatar.style.backgroundImage = `url('${imageData}')`;
+                        profileAvatar.classList.add('has-image');
+                        profileAvatar.innerHTML = '';
+                        try{
+                            await fetch('/api/teacher/update', {
+                                method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'},
+                                body: JSON.stringify({photo: imageData})
+                            });
+                        }catch(err){ console.warn('could not upload photo', err); }
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+        }
+
+        // fetch profile details and populate fields
+        async function loadProfile(){
+            try{
+                const res = await fetch('/api/teacher/me', {credentials:'same-origin'});
+                if(!res.ok) throw new Error('not logged in');
+                const data = await res.json();
+                document.getElementById('user-name').textContent = data.username;
+                
+                // Fill settings inputs
+                // Update dashboard profile section
+document.getElementById('dash-name').textContent = data.name || '';
+document.getElementById('dash-department').textContent = data.department || '';
+document.getElementById('dash-email').textContent = data.email || '';
+document.getElementById('dash-role').textContent = data.role || 'Faculty';
+  document.getElementById('settings-name').value = data.name || '';
+        document.getElementById('settings-username').value = data.username || '';
+        document.getElementById('settings-email').value = data.email || '';
+        document.getElementById('settings-department').value = data.department || '';
+        document.getElementById('settings-phone').value = data.phone || '';                
+                // Start typing animation with the loaded username
+                startTypingAnimation(data.username);
+            }catch(e){
+                // redirect to login if unauthenticated
+                window.location.href = 'admin portal.html';
+            }
+        }
+
+        loadProfile();
+
+        window.saveSettings = async function(){
+            const payload = {
+                name: document.getElementById('settings-name').value.trim(),
+                username: document.getElementById('settings-username').value.trim(),
+                email: document.getElementById('settings-email').value.trim(),
+                department: document.getElementById('settings-department').value.trim(),
+                phone: document.getElementById('settings-phone').value.trim()
+            };
+            try{
+                const res = await fetch('/api/teacher/update',{
+                    method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if(!res.ok){ alert(data.message||'Update failed'); return; }
+                alert('Profile updated');
+                loadProfile();
+            }catch(err){ alert('Error: '+err); }
+        };
+
+        window.changePassword = async function(){
+            const current = document.getElementById('settings-current-password').value;
+            const nw = document.getElementById('settings-new-password').value;
+            const conf = document.getElementById('settings-confirm-password').value;
+            if(nw !== conf){ alert('New passwords do not match'); return; }
+            try{
+                const res = await fetch('/api/teacher/change_password',{
+                    method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'},
+                    body: JSON.stringify({current_password: current, new_password: nw})
+                });
+                const data = await res.json();
+                if(!res.ok){ alert(data.message||'Password change failed'); return; }
+                alert('Password changed');
+                // Clear password fields
+                document.getElementById('settings-current-password').value = '';
+                document.getElementById('settings-new-password').value = '';
+                document.getElementById('settings-confirm-password').value = '';
+            }catch(err){ alert('Error: '+err); }
+        };
+    });
+})();
+async function loadStudentsFromBackend() {
+    try {
+        const response = await fetch('/api/teacher/students');
+        const data = await response.json();
+
+        if (!data.students) {
+            console.error("No students found");
+            return;
+        }
+
+        const tableBody = document.querySelector("#students tbody");
+
+        // Clear existing rows
+        tableBody.innerHTML = "";
+
+        data.students.forEach(student => {
+            const row = document.createElement("tr");
+
+            row.innerHTML = `
+                <td>${student.roll_number || ''}</td>
+                <td>${student.name || ''}</td>
+                <td>${student.department || ''}</td>
+                <td>${student.semester || ''}</td>
+                <td>${student.email || ''}</td>
+                <td>${student.phone || ''}</td>
+            `;
+
+            tableBody.appendChild(row);
+        });
+
+    } catch (error) {
+        console.error("Error loading students:", error);
+    }
+}
+async function loadStudentsFromBackend() {
+    const response = await fetch('/api/teacher/students');
+    const data = await response.json();
+    
+
+    const tableBody = document.querySelector("#students tbody");
+    tableBody.innerHTML = "";
+
+    data.students.forEach(student => {
+        const row = document.createElement("tr");
+
+        row.innerHTML = `
+            <td>${student.roll_number}</td>
+            <td>${student.name}</td>
+            <td>${student.department}</td>
+            <td>${student.semester}</td>
+            <td>${student.email}</td>
+            <td>${student.phone}</td>
+        `;
+
+        tableBody.appendChild(row);
+    });
+}
+</script>
+
+</body>
+</html>
