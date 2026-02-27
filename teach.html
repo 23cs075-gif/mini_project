@@ -183,23 +183,27 @@
                 </div>
 
                 <!-- Select Students -->
-                <div>
-                    <label style="display:block; margin-bottom:8px; font-weight:600; color:#333;">Select Students <span style="color:#ff6b6b;">*</span></label>
-                    <div style="border:1px solid #ddd; border-radius:8px; padding:15px; background:#f9f9f9; max-height:250px; overflow-y:auto;">
-                        <div style="margin-bottom:10px;">
-                            <input type="checkbox" id="selectAllStudents" onchange="toggleAllStudents()">
-                            <label for="selectAllStudents" style="margin-left:8px; font-weight:600; cursor:pointer;">Select All Students</label>
-                        </div>
-                        <hr style="margin-bottom:10px;">
-                        <div id="studentCheckboxes">
-                            <div><input type="checkbox" class="student-checkbox" value="23CS201" data-name="Gayathri M R"> <label style="margin-left:8px; cursor:pointer;">23CS201 - Gayathri M R (B.Tech CSE)</label></div>
-                            <div><input type="checkbox" class="student-checkbox" value="23CS202" data-name="John Doe"> <label style="margin-left:8px; cursor:pointer;">23CS202 - John Doe (B.Tech CSE)</label></div>
-                            <div><input type="checkbox" class="student-checkbox" value="23CS203" data-name="Alice Smith"> <label style="margin-left:8px; cursor:pointer;">23CS203 - Alice Smith (B.Tech CSE)</label></div>
-                            <div><input type="checkbox" class="student-checkbox" value="23CS204" data-name="Bob Johnson"> <label style="margin-left:8px; cursor:pointer;">23CS204 - Bob Johnson (B.Tech CSE)</label></div>
-                        </div>
-                    </div>
-                    <p id="selectedCount" style="margin-top:8px; color:#666; font-size:13px;">0 students selected</p>
-                </div>
+                <!-- Department Filter -->
+<div style="margin-bottom:10px;">
+    <label style="font-weight:600;">Filter by Department:</label>
+    <select id="departmentFilter" onchange="filterStudents()" style="padding:8px; border:1px solid #ddd; border-radius:6px;">
+        <option value="all">All Departments</option>
+        <!-- Departments will be populated dynamically -->
+    </select>
+</div>
+
+<!-- Student checkboxes container -->
+<div style="border:1px solid #ddd; border-radius:8px; padding:15px; background:#f9f9f9; max-height:250px; overflow-y:auto;">
+    <div style="margin-bottom:10px;">
+        <input type="checkbox" id="selectAllStudents" onchange="toggleAllStudents()">
+        <label for="selectAllStudents" style="margin-left:8px; font-weight:600; cursor:pointer;">Select All Students</label>
+    </div>
+    <hr style="margin-bottom:10px;">
+    <div id="studentCheckboxes">
+        <!-- Students will be populated dynamically -->
+    </div>
+</div>
+<p id="selectedCount" style="margin-top:8px; color:#666; font-size:13px;">0 students selected</p>
 
                 <!-- Exam Availability Times (Start & End Time) -->
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px;">
@@ -222,14 +226,10 @@
                     <input type="number" id="examDuration" placeholder="20" min="1" required style="width:100%; padding:12px; border:1px solid #ddd; border-radius:8px; font-size:14px;">
                 </div>
 
-                <!-- Number of Questions -->
-                <div>
-                    <label style="display:block; margin-bottom:8px; font-weight:600; color:#333;">Number of Questions <span style="color:#ff6b6b;">*</span></label>
-                    <input type="number" id="examQuestions" placeholder="10" min="1" required style="width:100%; padding:12px; border:1px solid #ddd; border-radius:8px; font-size:14px;">
-                </div>
+                
 
                 <!-- Submit Button -->
-                <button type="submit" onclick="createExam()" style="background:#5a0f1b; color:white; padding:12px 25px; border:none; border-radius:8px; cursor:pointer; font-weight:600; align-self:flex-start;">Create Exam</button>
+                <button  onclick="window.location.href='/create-exam'" style="background:#5a0f1b; color:white; padding:12px 25px; border:none; border-radius:8px; cursor:pointer; font-weight:600; align-self:flex-start;">Create Exam</button>
             </form>
         </div>
     </div>
@@ -284,7 +284,99 @@
 <script>
 // Initialize exams data from localStorage
 let examsData = JSON.parse(localStorage.getItem('examsData')) || [];
+let allStudents = [];
+let selectedStudents = new Set();
+let departmentsPopulated = false; // to ensure dropdown is populated only once
 
+// Load all students, optionally by department
+async function loadStudents(department='all') {
+    try {
+        const res = await fetch(`/api/teacher/students_for_exam?department=${department}`);
+        const data = await res.json();
+        allStudents = data.students || [];
+        renderStudentCheckboxes();
+
+        // populate departments only once
+        if (!departmentsPopulated) {
+            populateDepartmentFilter();
+            departmentsPopulated = true;
+        }
+    } catch (err) {
+        console.error("Failed to load students:", err);
+    }
+}
+
+// Render student checkboxes
+function renderStudentCheckboxes() {
+    const container = document.getElementById('studentCheckboxes');
+    container.innerHTML = '';
+
+    allStudents.forEach(student => {
+        const div = document.createElement('div');
+        div.style.marginBottom = '5px';
+        div.innerHTML = `
+            <input type="checkbox" id="student_${student.id}" value="${student.id}" onchange="toggleStudent(${student.id})" ${selectedStudents.has(student.id) ? 'checked' : ''}>
+            <label for="student_${student.id}" style="margin-left:8px; cursor:pointer;">${student.name} (${student.roll_number})</label>
+        `;
+        container.appendChild(div);
+    });
+
+    // Reset Select All checkbox
+    const allCheckbox = document.getElementById('selectAllStudents');
+    if (allCheckbox) {
+        allCheckbox.checked = allStudents.every(s => selectedStudents.has(s.id)) && allStudents.length > 0;
+    }
+
+    updateSelectedCount();
+}
+
+// Toggle individual student
+function toggleStudent(studentId) {
+    const checkbox = document.getElementById(`student_${studentId}`);
+    if (checkbox.checked) selectedStudents.add(studentId);
+    else selectedStudents.delete(studentId);
+
+    // Update Select All checkbox
+    const allCheckbox = document.getElementById('selectAllStudents');
+    if (allCheckbox) {
+        allCheckbox.checked = allStudents.every(s => selectedStudents.has(s.id)) && allStudents.length > 0;
+    }
+
+    updateSelectedCount();
+}
+
+// Toggle all students
+function toggleAllStudents() {
+    const checked = document.getElementById('selectAllStudents').checked;
+    allStudents.forEach(s => {
+        const cb = document.getElementById(`student_${s.id}`);
+        cb.checked = checked;
+        if (checked) selectedStudents.add(s.id);
+        else selectedStudents.delete(s.id);
+    });
+    updateSelectedCount();
+}
+
+// Filter students by department
+function filterStudents() {
+    const dept = document.getElementById('departmentFilter').value;
+    loadStudents(dept);
+}
+
+// Update selected count display
+function updateSelectedCount() {
+    document.getElementById('selectedCount').innerText = `${selectedStudents.size} students selected`;
+}
+
+// Populate department filter once
+function populateDepartmentFilter() {
+    const filter = document.getElementById('departmentFilter');
+    const depts = [...new Set(allStudents.map(s => s.department))];
+    filter.innerHTML = `<option value="all">All Departments</option>` + depts.map(d => `<option value="${d}">${d}</option>`).join('');
+}
+
+// Initial load
+loadStudents();
 // Add sample exam data if none exist
 if(examsData.length === 0){
     const sampleExam = {
@@ -857,6 +949,21 @@ async function loadStudentsFromBackend() {
         console.error("Error loading students:", error);
     }
 }
+function openExamPage() {
+    // Optional: validate exam creation fields first
+    const examName = document.getElementById('examName').value.trim();
+    if (!examName) {
+        alert('Please enter an exam name first');
+        return;
+    }
+
+    // You can create the exam in localStorage here if needed
+    createExam();  // keeps existing functionality
+
+    // Open the exam interface
+    window.open('exam.html', '_blank'); // opens in new tab
+}
+
 async function loadStudentsFromBackend() {
     const response = await fetch('/api/teacher/students');
     const data = await response.json();

@@ -207,35 +207,12 @@
 </div>
 
 <!-- EXAMS -->
+<!-- EXAMS -->
+ <div id="examsContainer"></div>
 <div id="exams" class="section">
     <div class="section-title">Upcoming Exams</div>
-    <div class="card">
-        <table>
-            <tr>
-                <th>Exam</th>
-                <th>Date</th>
-                <th>Time</th>
-                <th>Action</th>
-            </tr>
-            <tr>
-                <td><i class="fas fa-book" style="color:#5a0f1b; margin-right:8px;"></i>DSA Test</td>
-                <td>15-Feb-2026</td>
-                <td>10:00 AM - 11:00 AM</td>
-                <td><button onclick="startExam()">Start Exam</button></td>
-            </tr>
-            <tr>
-                <td><i class="fas fa-laptop-code" style="color:#5a0f1b; margin-right:8px;"></i>Web Dev Challenge</td>
-                <td>18-Feb-2026</td>
-                <td>2:00 PM - 3:30 PM</td>
-                <td><button onclick="startExam()">Start Exam</button></td>
-            </tr>
-            <tr>
-                <td><i class="fas fa-database" style="color:#5a0f1b; margin-right:8px;"></i>Data Structures</td>
-                <td>22-Feb-2026</td>
-                <td>9:00 AM - 10:00 AM</td>
-                <td><button onclick="startExam()">Start Exam</button></td>
-            </tr>
-        </table>
+    <div id="exam-list" class="cards-section">
+        <!-- Teacher-set exams will appear here dynamically -->
     </div>
 </div>
 
@@ -418,6 +395,47 @@
 </footer>
 
 <script>
+    function loadStudentExams() {
+    // For demo, assume logged-in student ID is s1
+    const studentId = 's1';
+    const exams = JSON.parse(localStorage.getItem(`student_${studentId}_exams`) || '[]');
+    const container = document.getElementById('examsContainer');
+    container.innerHTML = '';
+
+    exams.forEach((exam, index) => {
+        const startButton = exam.submitted 
+            ? '<span style="color:green;font-weight:700;">Submitted</span>' 
+            : `<button onclick="startStudentExam(${index})">Start Exam</button>`;
+
+        container.innerHTML += `
+            <div class="card" style="margin-bottom:15px;">
+                <h3>${exam.name}</h3>
+                <p><b>Start:</b> ${exam.startTime}</p>
+                <p>${startButton}</p>
+            </div>
+        `;
+    });
+}
+function startStudentExam(examIndex) {
+    const studentId = 's1';
+    const exams = JSON.parse(localStorage.getItem(`student_${studentId}_exams`));
+    const exam = exams[examIndex];
+    const container = document.getElementById('examsContainer');
+
+    container.innerHTML = `<h2>${exam.name}</h2>`;
+
+    exam.questions.forEach((q, i) => {
+        container.innerHTML += `
+            <div class="question-box">
+                <h4>Q${i+1}: ${q.question}</h4>
+                <textarea id="studentAnswer${i}" placeholder="Enter your answer"></textarea>
+                <div id="result${i}" style="margin-top:8px;"></div>
+            </div>
+        `;
+    });
+
+    container.innerHTML += `<button onclick="submitStudentExam(${examIndex})">Submit Exam</button>`;
+}
 function showPage(pageId, element){
     document.querySelectorAll('.section').forEach(sec => {
         sec.classList.remove('active');
@@ -455,7 +473,34 @@ function filterResults(exam){
 }
 
 
+async function submitStudentExam(examIndex) {
+    const studentId = 's1';
+    const exams = JSON.parse(localStorage.getItem(`student_${studentId}_exams`));
+    const exam = exams[examIndex];
 
+    let score = 0;
+    exam.questions.forEach((q, i) => {
+        const answer = document.getElementById(`studentAnswer${i}`).value;
+        if(answer.trim() === q.teacherAnswer.trim()) {
+            document.getElementById(`result${i}`).innerHTML = "✔ Correct";
+            document.getElementById(`result${i}`).style.color = "green";
+            score++;
+        } else {
+            document.getElementById(`result${i}`).innerHTML = "✖ Wrong";
+            document.getElementById(`result${i}`).style.color = "red";
+        }
+    });
+
+    alert(`Final Score: ${score} / ${exam.questions.length}`);
+
+    // Mark exam as submitted
+    exam.submitted = true;
+    exams[examIndex] = exam;
+    localStorage.setItem(`student_${studentId}_exams`, JSON.stringify(exams));
+
+    // Reload exam list
+    loadStudentExams();
+}
 async function logout(){
     try{
         await fetch('/api/student/logout',{method:'POST',credentials:'same-origin'});

@@ -3,6 +3,9 @@ from flask import Flask, request, jsonify, session, redirect
 from config import Config
 from extensions import db
 from sqlalchemy import text
+import re
+from sentence_transformers import SentenceTransformer, util
+from transformers import pipeline
 
 # make sure models are imported so SQLAlchemy knows about them
 import models
@@ -12,6 +15,55 @@ from models import Student, Teacher
 # db.Model before create_all() is called.  the import has no other side
 # effects; it merely triggers the class definitions in models.py.
 import models
+print("Loading AI Models...")
+sbert = SentenceTransformer("all-MiniLM-L6-v2")
+nli = pipeline("text-classification", model="roberta-large-mnli")
+print("Models Loaded!")
+
+def normalize(code: str) -> str:
+    code = re.sub(r'#.*', '', code)
+    code = re.sub(r'"""[\s\S]*?"""', '', code)
+    return re.sub(r'\s+', '', code)
+
+
+def evaluate_code_question(question, correct_blank, student_answer):
+    student_n = normalize(student_answer)
+    blank_n = normalize(correct_blank)
+
+    return blank_n in student_n
+
+
+def evaluate_fill_blank(question, teacher_answer, student_answer):
+    return student_answer.lower().strip() == teacher_answer.lower().strip()
+
+
+def evaluate_semantic(question, teacher_answer, student_answer, sim_threshold=0.65):
+
+    teacher_full = question.replace("____", teacher_answer)
+    student_full = question.replace("____", student_answer)
+
+    nli_input = f"{teacher_full} </s></s> {student_full}"
+    nli_result = nli(nli_input)[0]
+
+    if nli_result["label"] == "CONTRADICTION" and nli_result["score"] > 0.6:
+        return False
+
+    if nli_result["label"] == "ENTAILMENT" and nli_result["score"] > 0.6:
+        return True
+
+    emb_teacher = sbert.encode(teacher_full, convert_to_tensor=True)
+    emb_student = sbert.encode(student_full, convert_to_tensor=True)
+
+    similarity = util.cos_sim(emb_teacher, emb_student).item()
+
+    return similarity >= sim_threshold
+
+
+def evaluate_numerical(teacher_answer, student_answer):
+    try:
+        return round(float(teacher_answer), 1) == round(float(student_answer), 1)
+    except:
+        return False
 
 
 def create_app():
@@ -38,6 +90,32 @@ def create_app():
     # make sure models are imported after db.bind; this is normally handled
     # by the top-level import above but kept here for clarity.
     # (``models`` already imported at module level.)
+    
+    @app.route("/evaluate", methods=["POST"])
+    def evaluate():
+        data = request.json
+
+        question = data.get("question", "")
+        teacher_answer = data.get("teacher_answer", "")
+        student_answer = data.get("student_answer", "")
+        q_type = data.get("type", "direct")
+
+        if q_type == "numerical":
+            result = evaluate_numerical(teacher_answer, student_answer)
+
+        elif q_type == "code":
+            result = evaluate_code_question(question, teacher_answer, student_answer)
+
+        elif q_type == "direct":
+            result = evaluate_fill_blank(question, teacher_answer, student_answer)
+
+        elif q_type == "english":
+            result = evaluate_semantic(question, teacher_answer, student_answer)
+
+        else:
+            return jsonify({"error": "Invalid type"}), 400
+
+        return jsonify({"correct": result})
 
     @app.route("/")
     def index():
@@ -62,7 +140,37 @@ def create_app():
         if sid:
             return Student.query.get(sid)
         return None
+    @app.route("/create-exam")
+    def create_exam():
+        with open("exam.html", "r", encoding="utf-8") as f:
+            return f.read()
+    @app.route('/api/teacher/students_for_exam', methods=['GET'])
+    def students_for_exam():
+        try:
+            teacher = _current_teacher()
+            if not teacher:
+                return jsonify(message='not authenticated'), 401
 
+            dept = request.args.get('department', 'all')
+
+            if dept == 'all':
+                students = Student.query.all()
+            else:
+                students = Student.query.filter_by(department=dept).all()
+
+            result = []
+            for s in students:
+                result.append({
+                    "id": s.id,
+                    "name": s.name,
+                    "roll_number": s.roll_number,
+                    "department": s.department,
+                    "semester": s.semester
+                    })
+            return jsonify(students=result)
+        except Exception as e:
+            app.logger.error(f"Get students for exam error: {e}")
+            return jsonify(message='failed to fetch students'), 500
     @app.route('/api/student/register', methods=['POST'])
     def student_register():
         try:

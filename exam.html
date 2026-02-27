@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Smart Evaluation System - Teacher Exam Setup</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            background: #f4f6f9;
+        }
+
+        input, textarea, select {
+            width: 100%;
+            padding: 8px;
+            margin: 6px 0;
+            box-sizing: border-box;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin-top: 15px;
+            background: green;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        .question-box {
+            background: white;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
+            box-shadow: 0 0 5px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+
+<h2>Smart Evaluation System - Teacher Exam Setup</h2>
+
+<label>Enter Total Number of Questions:</label>
+<input type="number" id="totalQuestions" min="1" placeholder="Enter number of questions">
+
+<button onclick="generateQuestions()">Generate Questions</button>
+
+<div id="questionsContainer"></div>
+<button id="setExamBtn">Set Exam</button>
+
+<script>
+let examData = {
+    questions: [],
+    students: [
+        {id: 's1', name: 'Alice'},
+        {id: 's2', name: 'Bob'}
+    ]
+};
+
+function generateQuestions() {
+    const total = document.getElementById("totalQuestions").value;
+    const container = document.getElementById("questionsContainer");
+    container.innerHTML = "";
+    examData.questions = [];
+
+    for (let i = 1; i <= total; i++) {
+        container.innerHTML += `
+            <div class="question-box">
+                <h3>Question ${i}</h3>
+
+                <label>Question:</label>
+                <textarea id="question${i}" placeholder="Enter question here"></textarea>
+
+                <label>Teacher Answer:</label>
+                <textarea id="teacher${i}" placeholder="Enter correct answer"></textarea>
+
+                <label>Type:</label>
+                <select id="type${i}">
+                    <option value="numerical">Numerical</option>
+                    <option value="code">Code</option>
+                    <option value="direct">Direct Fill</option>
+                    <option value="english">English Semantic</option>
+                </select>
+            </div>
+        `;
+    }
+}
+
+// Set Exam for Students
+document.getElementById("setExamBtn").addEventListener("click", () => {
+    const total = document.getElementById("totalQuestions").value;
+    if(total < 1){
+        alert("Enter number of questions first!");
+        return;
+    }
+
+    const examName = prompt("Enter exam name:");
+    if(!examName){ alert("Exam name required!"); return; }
+
+    const examStart = prompt("Enter exam start date-time (yyyy-mm-dd hh:mm):");
+    if(!examStart){ alert("Exam start time required!"); return; }
+
+    let questions = [];
+    for (let i = 1; i <= total; i++) {
+        const q = document.getElementById(`question${i}`).value;
+        const a = document.getElementById(`teacher${i}`).value;
+        const t = document.getElementById(`type${i}`).value;
+
+        if(!q || !a){
+            alert(`Please fill question and teacher answer for Q${i}`);
+            return;
+        }
+
+        questions.push({question: q, teacherAnswer: a, type: t});
+    }
+
+    // Save exam for each student
+    examData.students.forEach(student => {
+        let studentExams = JSON.parse(localStorage.getItem(`student_${student.id}_exams`) || '[]');
+        studentExams.push({
+            id: Date.now(),
+            name: examName,
+            questions: questions,
+            startTime: examStart,
+            submitted: false,
+            score: null
+        });
+        localStorage.setItem(`student_${student.id}_exams`, JSON.stringify(studentExams));
+    });
+
+    alert("Exam successfully set for all students!");
+});
+</script>
+
+</body>
+</html>
