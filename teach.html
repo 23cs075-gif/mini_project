@@ -164,6 +164,9 @@
     <div id="exam-view" class="exam-tab-content active">
         <div class="card">
             <h3 style="color:#5a0f1b; margin-bottom:15px;">All Exams</h3>
+            <p style="background:#e8f4f8; padding:12px; border-radius:6px; border-left:4px solid #0066cc; margin-bottom:15px; font-size:13px;">
+                <b>📌 Note:</b> <span style="color:#333;">After creating an exam and setting questions on the question setup page, click "Activate" here to make it visible to assigned students.</span>
+            </p>
             <div id="examsListContainer">
                 <!-- Exams will be populated here -->
             </div>
@@ -229,7 +232,7 @@
                 
 
                 <!-- Submit Button -->
-                <button  onclick="window.location.href='/create-exam'" style="background:#5a0f1b; color:white; padding:12px 25px; border:none; border-radius:8px; cursor:pointer; font-weight:600; align-self:flex-start;">Create Exam</button>
+                <button type="button" id="createExamBtn" onclick="createExam()" disabled style="background:#5a0f1b; color:white; padding:12px 25px; border:none; border-radius:8px; cursor:pointer; font-weight:600; align-self:flex-start;">Create Exam</button>
             </form>
         </div>
     </div>
@@ -241,6 +244,14 @@
             <select id="examReportSelect" onchange="loadExamReport()" style="width:100%; padding:12px; border:1px solid #ddd; border-radius:8px; margin-bottom:20px; font-size:14px;">
                 <option value="">-- Select an exam --</option>
             </select>
+
+            <!-- Clear All Results Button -->
+            <div style="margin-bottom:20px;">
+                <button onclick="clearAllStudentResults()" style="background:#ff6b6b; color:white; padding:10px 20px; border:none; border-radius:8px; cursor:pointer; font-weight:600;">
+                    🗑️ Clear All Results
+                </button>
+                <p style="font-size:12px; color:#666; margin-top:8px;">This will permanently delete all student exam results from the system.</p>
+            </div>
 
             <!-- Report Content -->
             <div id="reportContent" style="display:none;">
@@ -288,7 +299,20 @@ let allStudents = [];
 let selectedStudents = new Set();
 let departmentsPopulated = false; // to ensure dropdown is populated only once
 
-// Load all students, optionally by department
+// Validation: enable create button only when form is complete
+function updateCreateBtnState(){
+    const examName = document.getElementById('examName')?.value.trim();
+    const startTime = document.getElementById('examStartTime')?.value;
+    const endTime = document.getElementById('examEndTime')?.value;
+    const duration = document.getElementById('examDuration')?.value;
+    const hasStudents = selectedStudents.size > 0;
+    const timesValid = startTime && endTime && (new Date(startTime) < new Date(endTime));
+    const valid = examName && startTime && endTime && duration && hasStudents && timesValid;
+    const btn = document.getElementById('createExamBtn');
+    if(btn) btn.disabled = !valid;
+}
+
+// Load students (optionally filtered by department) and render checkboxes
 async function loadStudents(department='all') {
     try {
         const res = await fetch(`/api/teacher/students_for_exam?department=${department}`);
@@ -315,8 +339,8 @@ function renderStudentCheckboxes() {
         const div = document.createElement('div');
         div.style.marginBottom = '5px';
         div.innerHTML = `
-            <input type="checkbox" id="student_${student.id}" value="${student.id}" onchange="toggleStudent(${student.id})" ${selectedStudents.has(student.id) ? 'checked' : ''}>
-            <label for="student_${student.id}" style="margin-left:8px; cursor:pointer;">${student.name} (${student.roll_number})</label>
+            <input class="student-checkbox" data-name="${student.name}" data-roll="${student.roll_number}" type="checkbox" id="student_${student.roll_number}" value="${student.roll_number}" onchange="toggleStudent('${student.roll_number}')" ${selectedStudents.has(student.roll_number) ? 'checked' : ''}>
+            <label for="student_${student.roll_number}" style="margin-left:8px; cursor:pointer;">${student.name} (${student.roll_number})</label>
         `;
         container.appendChild(div);
     });
@@ -324,37 +348,42 @@ function renderStudentCheckboxes() {
     // Reset Select All checkbox
     const allCheckbox = document.getElementById('selectAllStudents');
     if (allCheckbox) {
-        allCheckbox.checked = allStudents.every(s => selectedStudents.has(s.id)) && allStudents.length > 0;
+        allCheckbox.checked = allStudents.every(s => selectedStudents.has(s.roll_number)) && allStudents.length > 0;
     }
 
     updateSelectedCount();
+    updateCreateBtnState();
 }
 
 // Toggle individual student
-function toggleStudent(studentId) {
-    const checkbox = document.getElementById(`student_${studentId}`);
-    if (checkbox.checked) selectedStudents.add(studentId);
-    else selectedStudents.delete(studentId);
+function toggleStudent(rollNumber) {
+    const checkbox = document.getElementById(`student_${rollNumber}`);
+    if (checkbox.checked) selectedStudents.add(rollNumber);
+    else selectedStudents.delete(rollNumber);
 
     // Update Select All checkbox
     const allCheckbox = document.getElementById('selectAllStudents');
     if (allCheckbox) {
-        allCheckbox.checked = allStudents.every(s => selectedStudents.has(s.id)) && allStudents.length > 0;
+        allCheckbox.checked = allStudents.every(s => selectedStudents.has(s.roll_number)) && allStudents.length > 0;
     }
 
     updateSelectedCount();
+    updateCreateBtnState();
 }
 
 // Toggle all students
 function toggleAllStudents() {
     const checked = document.getElementById('selectAllStudents').checked;
     allStudents.forEach(s => {
-        const cb = document.getElementById(`student_${s.id}`);
-        cb.checked = checked;
-        if (checked) selectedStudents.add(s.id);
-        else selectedStudents.delete(s.id);
+        const cb = document.getElementById(`student_${s.roll_number}`);
+        if (cb) {
+            cb.checked = checked;
+            if (checked) selectedStudents.add(s.roll_number);
+            else selectedStudents.delete(s.roll_number);
+        }
     });
     updateSelectedCount();
+    updateCreateBtnState();
 }
 
 // Filter students by department
@@ -377,6 +406,17 @@ function populateDepartmentFilter() {
 
 // Initial load
 loadStudents();
+
+// ensure validation state is kept up-to-date when user interacts
+window.addEventListener('DOMContentLoaded', function(){
+    ['examName','examStartTime','examEndTime','examDuration'].forEach(id => {
+        const el = document.getElementById(id);
+        if(el) el.addEventListener('input', updateCreateBtnState);
+    });
+    // student toggles already call updateCreateBtnState from toggleStudent/toggleAllStudents
+    updateCreateBtnState();
+});
+
 // Add sample exam data if none exist
 if(examsData.length === 0){
     const sampleExam = {
@@ -449,29 +489,7 @@ function switchExamTab(tab){
     document.getElementById('tab-' + tab).classList.add('active');
 }
 
-// STUDENT SELECTION
-function toggleAllStudents(){
-    const checkboxes = document.querySelectorAll('.student-checkbox');
-    const selectAllCheckbox = document.getElementById('selectAllStudents');
-    
-    checkboxes.forEach(cb => {
-        cb.checked = selectAllCheckbox.checked;
-    });
-    
-    updateSelectedCount();
-}
-
-function updateSelectedCount(){
-    const checkboxes = document.querySelectorAll('.student-checkbox:checked');
-    document.getElementById('selectedCount').textContent = checkboxes.length + ' students selected';
-}
-
-// Add change listener to all student checkboxes
-document.addEventListener('DOMContentLoaded', function(){
-    document.querySelectorAll('.student-checkbox').forEach(cb => {
-        cb.addEventListener('change', updateSelectedCount);
-    });
-});
+// (Duplicate selection helpers removed; original versions above handle checkbox state and selectedStudents set.)
 
 // CREATE EXAM
 function createExam(){
@@ -479,17 +497,18 @@ function createExam(){
     const startTime = document.getElementById('examStartTime').value;
     const endTime = document.getElementById('examEndTime').value;
     const duration = document.getElementById('examDuration').value;
-    const questions = document.getElementById('examQuestions').value;
     
-    const selectedStudents = Array.from(document.querySelectorAll('.student-checkbox:checked'))
-        .map(cb => ({ id: cb.value, name: cb.dataset.name }));
+    const selectedStudentsArr = Array.from(document.querySelectorAll('.student-checkbox:checked'))
+        .map(cb => ({ roll_number: cb.value, name: cb.dataset.name }));
+    
+    console.log('Selected students for exam:', selectedStudentsArr);
     
     // Validation
     if(!examName){
         alert('Please enter exam name');
         return;
     }
-    if(selectedStudents.length === 0){
+    if(selectedStudentsArr.length === 0){
         alert('Please select at least one student');
         return;
     }
@@ -501,10 +520,7 @@ function createExam(){
         alert('Please set exam duration');
         return;
     }
-    if(!questions){
-        alert('Please set number of questions');
-        return;
-    }
+    
     
     if(new Date(startTime) >= new Date(endTime)){
         alert('End time must be after start time');
@@ -518,16 +534,16 @@ function createExam(){
         startTime: startTime,
         endTime: endTime,
         duration: parseInt(duration),
-        questions: parseInt(questions),
+        questions: [],
         active: false,
-        students: selectedStudents,
+        students: selectedStudentsArr,
         createdDate: new Date().toLocaleString(),
         studentAnswers: {}
     };
     
     // Initialize student answers
-    selectedStudents.forEach(student => {
-        newExam.studentAnswers[student.id] = {
+    selectedStudentsArr.forEach(student => {
+        newExam.studentAnswers[student.roll_number] = {
             name: student.name,
             status: 'not-attempted',
             answers: [],
@@ -550,9 +566,11 @@ function createExam(){
     document.getElementById('selectAllStudents').checked = false;
     updateSelectedCount();
     
-    alert('✓ Exam created successfully!');
-    switchExamTab('view');
+    alert('✓ Exam created successfully! Opening question setup...');
+    // redirect to exam.html carrying the new exam ID so the page can pick up details
+    window.location.href = 'exam.html?examId=' + newExam.id;
 }
+
 
 // UPDATE EXAMS LIST VIEW
 function updateExamsList(){
@@ -562,30 +580,72 @@ function updateExamsList(){
     }
     
     let examsHTML = '';
+    const now = new Date();
+    
     examsData.forEach(exam => {
+        const examStartTime = new Date(exam.startTime);
+        const examEndTime = new Date(exam.endTime);
+        const isBeforeStart = now < examStartTime;
+        const isAfterEnd = now > examEndTime;
+        const isActive = exam.active === true;
+        
+        console.log(`Exam: ${exam.name}, Now: ${now.toLocaleString()}, Start: ${examStartTime.toLocaleString()}, End: ${examEndTime.toLocaleString()}, isBeforeStart: ${isBeforeStart}, isAfterEnd: ${isAfterEnd}`);
+        
         if(exam.active === false){
             // Inactive exam - only activation button
+            let activateBtn = `<button onclick="activateExam(${exam.id})" style="background:#27ae60; color:white; padding:8px 15px; border:none; border-radius:6px; cursor:pointer; font-weight:600; white-space:nowrap;">Activate</button>`;
+            let statusText = 'Inactive';
+            
+            // Disable activation if before start time
+            if(isBeforeStart){
+                activateBtn = `<button disabled style="background:#ccc; color:#666; padding:8px 15px; border:none; border-radius:6px; cursor:not-allowed; font-weight:600; white-space:nowrap;" title="Cannot activate before exam start time">Activate</button>`;
+                statusText = 'Inactive (Starts ' + examStartTime.toLocaleString() + ')';
+            }
+            
+            // Hide if after end time
+            if(isAfterEnd){
+                console.log(`Exam ${exam.name} has expired, hiding from list`);
+                return; // Skip this exam from display
+            }
+            
             examsHTML += `
             <div style="padding:15px; margin-bottom:12px; background:#f9f9f9; border-radius:8px; border-left:4px solid #999; display:flex; justify-content:space-between; align-items:center;">
                 <div style="flex:1;">
                     <p style="margin:0; color:#666; font-weight:600;">${exam.name}</p>
-                    <p style="margin:5px 0 0 0; color:#999; font-size:13px;">Exam Start: ${new Date(exam.startTime).toLocaleString()}</p>
+                    <p style="margin:5px 0 0 0; color:#999; font-size:13px;">Start: ${examStartTime.toLocaleString()} | End: ${examEndTime.toLocaleString()} | Duration: ${exam.duration} mins</p>
+                    <p style="margin:5px 0 0 0; color:#999; font-size:12px;">Status: ${statusText}</p>
                 </div>
-                <button onclick="activateExam(${exam.id})" style="background:#27ae60; color:white; padding:8px 15px; border:none; border-radius:6px; cursor:pointer; font-weight:600; white-space:nowrap;">Activate</button>
+                ${activateBtn}
             </div>`;
         } else {
             // Active exam - show all details and action buttons
+            let actionButtons = `
+                <div style="display:flex; gap:8px; white-space:nowrap;">
+                    <button onclick="deactivateExam(${exam.id})" style="background:#f39c12; color:white; padding:8px 12px; border:none; border-radius:6px; cursor:pointer; font-weight:600;">Deactivate</button>
+                    <button onclick="deleteExam(${exam.id})" style="background:#ff6b6b; color:white; padding:8px 12px; border:none; border-radius:6px; cursor:pointer; font-weight:600;">Delete</button>
+                </div>`;
+            
+            let statusText = 'Active';
+            
+            // If exam time has ended, disable all buttons
+            if(isAfterEnd){
+                actionButtons = `
+                <div style="display:flex; gap:8px; white-space:nowrap;">
+                    <button disabled style="background:#ccc; color:#666; padding:8px 12px; border:none; border-radius:6px; cursor:not-allowed; font-weight:600;" title="Exam period has ended">Deactivate</button>
+                    <button disabled style="background:#ccc; color:#666; padding:8px 12px; border:none; border-radius:6px; cursor:not-allowed; font-weight:600;" title="Exam period has ended">Delete</button>
+                </div>`;
+                statusText = 'Expired (Ended ' + examEndTime.toLocaleString() + ')';
+                console.log(`Exam ${exam.name} has expired, disabling all buttons`);
+            }
+            
             examsHTML += `
             <div style="padding:15px; margin-bottom:12px; background:#f0fdf4; border-radius:8px; border-left:4px solid #27ae60; display:flex; justify-content:space-between; align-items:center;">
                 <div style="flex:1;">
                     <p style="margin:0; color:#333; font-weight:600;">${exam.name}</p>
-                    <p style="margin:5px 0 0 0; color:#666; font-size:13px;">Start: ${new Date(exam.startTime).toLocaleString()} | End: ${new Date(exam.endTime).toLocaleString()} | Duration: ${exam.duration} mins</p>
-                    <p style="margin:5px 0 0 0; color:#27ae60; font-weight:600; font-size:13px;">Status: Active</p>
+                    <p style="margin:5px 0 0 0; color:#666; font-size:13px;">Start: ${examStartTime.toLocaleString()} | End: ${examEndTime.toLocaleString()} | Duration: ${exam.duration} mins</p>
+                    <p style="margin:5px 0 0 0; color:#27ae60; font-weight:600; font-size:13px;">Status: ${statusText}</p>
                 </div>
-                <div style="display:flex; gap:8px; white-space:nowrap;">
-                    <button onclick="deactivateExam(${exam.id})" style="background:#f39c12; color:white; padding:8px 12px; border:none; border-radius:6px; cursor:pointer; font-weight:600;">Deactivate</button>
-                    <button onclick="deleteExam(${exam.id})" style="background:#ff6b6b; color:white; padding:8px 12px; border:none; border-radius:6px; cursor:pointer; font-weight:600;">Delete</button>
-                </div>
+                ${actionButtons}
             </div>`;
         }
     });
@@ -605,24 +665,54 @@ function deleteExam(examId){
 
 function activateExam(examId){
     const exam = examsData.find(e => e.id === examId);
-    if(exam){
-        exam.active = true;
-        localStorage.setItem('examsData', JSON.stringify(examsData));
-        updateExamsList();
-        populateExamDropdown();
-        alert('✓ Exam activated successfully!');
+    if(!exam) return;
+    
+    const now = new Date();
+    const examStartTime = new Date(exam.startTime);
+    const examEndTime = new Date(exam.endTime);
+    
+    // Check if before start time
+    if(now < examStartTime){
+        alert('❌ Cannot activate exam before start time!\nExam starts at: ' + examStartTime.toLocaleString());
+        console.warn(`Cannot activate exam ${examId} - before start time`);
+        return;
     }
+    
+    // Check if after end time
+    if(now > examEndTime){
+        alert('❌ Cannot activate exam after end time!\nExam ended at: ' + examEndTime.toLocaleString());
+        console.warn(`Cannot activate exam ${examId} - after end time`);
+        return;
+    }
+    
+    exam.active = true;
+    console.log(`✅ Exam activated (ID: ${examId}, Name: "${exam.name}", Students: ${exam.students.length})`);
+    localStorage.setItem('examsData', JSON.stringify(examsData));
+    updateExamsList();
+    populateExamDropdown();
+    alert('✓ Exam activated successfully!');
 }
 
 function deactivateExam(examId){
     const exam = examsData.find(e => e.id === examId);
-    if(exam){
-        exam.active = false;
-        localStorage.setItem('examsData', JSON.stringify(examsData));
-        updateExamsList();
-        populateExamDropdown();
-        alert('✓ Exam deactivated successfully!');
+    if(!exam) return;
+    
+    const now = new Date();
+    const examEndTime = new Date(exam.endTime);
+    
+    // Check if after end time
+    if(now > examEndTime){
+        alert('❌ Cannot deactivate exam after end time!\nExam period has ended at: ' + examEndTime.toLocaleString());
+        console.warn(`Cannot deactivate exam ${examId} - after end time`);
+        return;
     }
+    
+    exam.active = false;
+    console.log(`❌ Exam deactivated (ID: ${examId}, Name: "${exam.name}", Students: ${exam.students.length})`);
+    localStorage.setItem('examsData', JSON.stringify(examsData));
+    updateExamsList();
+    populateExamDropdown();
+    alert('✓ Exam deactivated successfully!');
 }
 
 // EXAM REPORT
@@ -749,6 +839,64 @@ function viewStudentAnswers(studentId){
 function closeAnswerDetails(){
     document.getElementById('answerDetails').style.display = 'none';
     document.getElementById('reportStudentList').style.display = 'flex';
+}
+
+// Clear all student results (resets submitted status, scores, and answers but keeps exam questions)
+function clearAllStudentResults(){
+    if(!confirm('⚠️ WARNING: This will permanently delete ALL student exam RESULTS (submitted status, scores, answers)!\n\nExam questions will be preserved. Are you sure?')) {
+        return;
+    }
+    
+    if(!confirm('This is your last chance to cancel.\nClick OK to clear all results, or Cancel to go back.')) {
+        return;
+    }
+    
+    try {
+        // Get all exam data to find all students
+        const examsData = JSON.parse(localStorage.getItem('examsData') || '[]');
+        const allStudents = new Set();
+        
+        // Collect all unique student roll numbers
+        examsData.forEach(exam => {
+            if(exam.students) {
+                exam.students.forEach(s => {
+                    allStudents.add(s.roll_number);
+                });
+            }
+        });
+        
+        console.log(`🗑️ Clearing results for ${allStudents.size} students...`);
+        let clearedCount = 0;
+        
+        // Reset exam results for each student (keep questions, clear submissions)
+        allStudents.forEach(rollNumber => {
+            const key = `student_${rollNumber}_exams`;
+            const studentExams = JSON.parse(localStorage.getItem(key) || '[]');
+            
+            if(studentExams.length > 0) {
+                // Reset each exam's submission data but KEEP questions
+                studentExams.forEach(exam => {
+                    exam.submitted = false;
+                    exam.score = null;
+                    exam.studentAnswers = [];
+                    console.log(`✓ Reset results for exam "${exam.name}" (student: ${rollNumber})`);
+                });
+                
+                // Save back to localStorage
+                localStorage.setItem(key, JSON.stringify(studentExams));
+                clearedCount++;
+            }
+        });
+        
+        alert(`✅ Successfully cleared exam results for ${clearedCount} students!\n\nExam questions are preserved. Students can now retake exams.`);
+        console.log(`✅ Clearing complete. ${clearedCount} student records cleared (questions preserved).`);
+        
+        // Refresh the page
+        location.reload();
+    } catch(err) {
+        console.error('❌ Error clearing results:', err);
+        alert('❌ Error clearing results: ' + err.message);
+    }
 }
 
 // Update exam dropdown
@@ -949,44 +1097,22 @@ async function loadStudentsFromBackend() {
         console.error("Error loading students:", error);
     }
 }
-function openExamPage() {
-    // Optional: validate exam creation fields first
-    const examName = document.getElementById('examName').value.trim();
-    if (!examName) {
-        alert('Please enter an exam name first');
-        return;
-    }
+// previously used helper to navigate to exam page; no longer referenced
+// function openExamPage() {
+//     // Optional: validate exam creation fields first
+//     const examName = document.getElementById('examName').value.trim();
+//     if (!examName) {
+//         alert('Please enter an exam name first');
+//         return;
+//     }
+//
+//     // You can create the exam in localStorage here if needed
+//     createExam();  // keeps existing functionality
+//
+//     // Open the exam interface
+//     window.open('exam.html', '_blank'); // opens in new tab
+// }
 
-    // You can create the exam in localStorage here if needed
-    createExam();  // keeps existing functionality
-
-    // Open the exam interface
-    window.open('exam.html', '_blank'); // opens in new tab
-}
-
-async function loadStudentsFromBackend() {
-    const response = await fetch('/api/teacher/students');
-    const data = await response.json();
-    
-
-    const tableBody = document.querySelector("#students tbody");
-    tableBody.innerHTML = "";
-
-    data.students.forEach(student => {
-        const row = document.createElement("tr");
-
-        row.innerHTML = `
-            <td>${student.roll_number}</td>
-            <td>${student.name}</td>
-            <td>${student.department}</td>
-            <td>${student.semester}</td>
-            <td>${student.email}</td>
-            <td>${student.phone}</td>
-        `;
-
-        tableBody.appendChild(row);
-    });
-}
 </script>
 
 </body>

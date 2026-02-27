@@ -207,11 +207,9 @@
 </div>
 
 <!-- EXAMS -->
-<!-- EXAMS -->
- <div id="examsContainer"></div>
 <div id="exams" class="section">
     <div class="section-title">Upcoming Exams</div>
-    <div id="exam-list" class="cards-section">
+    <div id="exam-list" class="cards-section" style="display: flex; flex-direction: column; gap: 15px;">
         <!-- Teacher-set exams will appear here dynamically -->
     </div>
 </div>
@@ -395,34 +393,275 @@
 </footer>
 
 <script>
+    let currentStudentId = null; // Global variable to store logged-in student's ID
+    let allLoadedExams = []; // Global array to store combined exams from both sources
+    let examTimerInterval = null; // Timer for exam countdown
+    let currentExamIndex = null; // Track current exam being taken
+    
     function loadStudentExams() {
-    // For demo, assume logged-in student ID is s1
-    const studentId = 's1';
-    const exams = JSON.parse(localStorage.getItem(`student_${studentId}_exams`) || '[]');
-    const container = document.getElementById('examsContainer');
+    // Use the actual logged-in student's ID
+    if (!currentStudentId) {
+        console.error('❌ Student ID not loaded yet');
+        return;
+    }
+    
+    console.log(`📚 Loading UPCOMING exams for student: ${currentStudentId}`);
+    const now = new Date();
+    
+    // Load exams from student-specific storage (exams with full questions set)
+    const studentExams = JSON.parse(localStorage.getItem(`student_${currentStudentId}_exams`) || '[]');
+    console.log(`📦 Found ${studentExams.length} exams in student-specific storage:`, studentExams);
+    
+    // Also load active exams from main examsData that are assigned to this student
+    const examsData = JSON.parse(localStorage.getItem('examsData') || '[]');
+    console.log(`📋 Total exams in examsData:`, examsData.length);
+    
+    const assignedActiveExams = examsData.filter(exam => {
+        const isActive = exam.active === true;
+        const isAssigned = exam.students && exam.students.some(s => String(s.roll_number || s.id) === String(currentStudentId));
+        const examEndTime = new Date(exam.endTime);
+        const hasNotExpired = now < examEndTime; // Only show if exam hasn't ended
+        
+        // Log exam visibility decision
+        if(isAssigned) {
+            console.log(`Exam "${exam.name}": Active=${isActive}, Assigned=true, Current Time=${now.toLocaleString()}, End Time=${examEndTime.toLocaleString()}, HasNotExpired=${hasNotExpired}`);
+        }
+        
+        return isActive && isAssigned && hasNotExpired;
+    }).map(exam => ({
+        id: exam.id,
+        name: exam.name,
+        startTime: exam.startTime,
+        endTime: exam.endTime, // Include end time for timer
+        duration: exam.duration, // Include duration for auto-submit
+        submitted: false,
+        score: null,
+        questions: exam.questions || [] // Placeholder questions
+    }));
+    
+    console.log(`🎯 Found ${assignedActiveExams.length} ACTIVE and NON-EXPIRED exams assigned to this student:`, assignedActiveExams);
+    
+    // Combine both sources, but DEDUPLICATE by exam ID
+    // Only include exams that are: NOT submitted, NOT expired
+    const examMap = {};
+    
+    // First, add all assigned active exams (placeholders)
+    assignedActiveExams.forEach(exam => {
+        examMap[exam.id] = exam;
+    });
+    
+    // Then, add student exams ONLY if they're not submitted, not expired, AND still active
+    studentExams.forEach(exam => {
+        const examEndTime = new Date(exam.endTime);
+        const isExpired = now > examEndTime;
+        const isNotSubmitted = exam.submitted !== true;
+        
+        // Check if exam is still active in main examsData
+        const examInMain = examsData.find(e => e.id === exam.id);
+        const isStillActive = !examInMain || examInMain.active === true; // Default to true if not found
+        
+        if (isNotSubmitted && !isExpired && isStillActive) {
+            examMap[exam.id] = exam;
+        } else if (!isStillActive) {
+            console.log(`Exam "${exam.name}" (${exam.id}) excluded from list - deactivated by teacher`);
+        }
+    });
+    
+    // Convert back to array
+    allLoadedExams = Object.values(examMap);
+    console.log(`✅ Total UPCOMING exams after deduplication: ${allLoadedExams.length}`, allLoadedExams);
+    
+    const container = document.getElementById('exam-list'); // Use correct container
     container.innerHTML = '';
 
-    exams.forEach((exam, index) => {
+    if(allLoadedExams.length === 0){
+        container.innerHTML = '<p style="color:#666; padding:20px;">No upcoming exams</p>';
+        return;
+    }
+
+    allLoadedExams.forEach((exam, index) => {
         const startButton = exam.submitted 
-            ? '<span style="color:green;font-weight:700;">Submitted</span>' 
+            ? '<span style="color:green;font-weight:700;">✓ Submitted</span>' 
             : `<button onclick="startStudentExam(${index})">Start Exam</button>`;
 
         container.innerHTML += `
             <div class="card" style="margin-bottom:15px;">
                 <h3>${exam.name}</h3>
                 <p><b>Start:</b> ${exam.startTime}</p>
+                <p><b>Duration:</b> ${exam.duration} minutes</p>
                 <p>${startButton}</p>
             </div>
         `;
     });
 }
-function startStudentExam(examIndex) {
-    const studentId = 's1';
-    const exams = JSON.parse(localStorage.getItem(`student_${studentId}_exams`));
-    const exam = exams[examIndex];
-    const container = document.getElementById('examsContainer');
 
-    container.innerHTML = `<h2>${exam.name}</h2>`;
+function loadStudentResults() {
+    // Load submitted exams into Results section
+    if (!currentStudentId) {
+        console.error('❌ Student ID not loaded yet');
+        return;
+    }
+    
+    console.log(`📊 Loading exam RESULTS for student: ${currentStudentId}`);
+    
+    const studentExams = JSON.parse(localStorage.getItem(`student_${currentStudentId}_exams`) || '[]');
+    const examsData = JSON.parse(localStorage.getItem('examsData') || '[]');
+    
+    // Get all submitted OR expired exams
+    const submittedExams = studentExams.filter(exam => exam.submitted === true || exam.score !== null);
+    const examMetadata = {}; // Store exam metadata by ID for reference
+    
+    examsData.forEach(exam => {
+        examMetadata[exam.id] = exam;
+    });
+    
+    console.log(`Found ${submittedExams.length} completed/submitted exams:`, submittedExams);
+    
+    // Clear existing hardcoded results
+    const resultsDiv = document.querySelector('#results');
+    if(!resultsDiv) return;
+    
+    // Clear all result exam divs
+    document.querySelectorAll('.result-exam').forEach(el => el.remove());
+    
+    // Create results for each submitted exam
+    submittedExams.forEach(exam => {
+        const examMeta = examMetadata[exam.id] || {};
+        const score = exam.score || 0;
+        const totalQuestions = exam.questions ? exam.questions.length : 0;
+        const percentage = totalQuestions > 0 ? Math.round((score / totalQuestions) * 100) : 0;
+        const isPassed = percentage >= 50; // 50% passing score
+        
+        const resultDiv = document.createElement('div');
+        resultDiv.className = 'result-exam';
+        resultDiv.style.display = 'none'; // Hidden by default
+        
+        const statusColor = isPassed ? '#27ae60' : '#ff6b6b';
+        const statusText = isPassed ? 'PASS' : 'FAIL';
+        
+        resultDiv.innerHTML = `
+            <div class="card">
+                <h3 style="color:#5a0f1b; margin-bottom:15px; border-bottom:2px solid #5a0f1b; padding-bottom:10px;">
+                    ${exam.name} - ${new Date(exam.startTime).toLocaleDateString()}
+                </h3>
+                <p><b>Score:</b> <span style="color:${statusColor}; font-weight:700;">${score} / ${totalQuestions}</span> | 
+                <b>Status:</b> <span style="color:${statusColor}; font-weight:700;">${statusText}</span> | 
+                <b>Accuracy:</b> ${percentage}%</p>
+                
+                <button onclick="viewExamDetails('${exam.id}')" style="background:#5a0f1b; color:white; padding:8px 15px; margin-top:10px; border:none; border-radius:6px; cursor:pointer; font-weight:600;">View Details</button>
+            </div>
+        `;
+        
+        resultsDiv.appendChild(resultDiv);
+    });
+    
+    // Show "all results" summary
+    if(submittedExams.length > 0) {
+        const allResultsDiv = document.createElement('div');
+        allResultsDiv.className = 'result-exam';
+        allResultsDiv.id = 'all-results';
+        
+        const tableHTML = submittedExams.map((exam, idx) => {
+            const score = exam.score || 0;
+            const totalQuestions = exam.questions ? exam.questions.length : 0;
+            const percentage = totalQuestions > 0 ? Math.round((score / totalQuestions) * 100) : 0;
+            const isPassed = percentage >= 50;
+            const statusColor = isPassed ? '#27ae60' : '#ff6b6b';
+            const statusText = isPassed ? 'Pass' : 'Fail';
+            
+            return `
+                <tr>
+                    <td>${exam.name}</td>
+                    <td>${new Date(exam.startTime).toLocaleDateString()}</td>
+                    <td>${score} / ${totalQuestions}</td>
+                    <td style="color:${statusColor}; font-weight:700;">${statusText}</td>
+                    <td><button onclick="viewExamDetails('${exam.id}')" style="background:#5a0f1b; color:white; padding:5px 12px; border:none; border-radius:4px; cursor:pointer;">View</button></td>
+                </tr>
+            `;
+        }).join('');
+        
+        allResultsDiv.innerHTML = `
+            <div class="card">
+                <h3 style="color:#5a0f1b; margin-bottom:15px;">Your Exam Results</h3>
+                <table>
+                    <tr>
+                        <th>Exam</th>
+                        <th>Date</th>
+                        <th>Marks</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                    ${tableHTML}
+                </table>
+            </div>
+        `;
+        
+        resultsDiv.appendChild(allResultsDiv);
+    }
+}
+function startStudentExam(examIndex) {
+    if (!currentStudentId) {
+        console.error('Student ID not loaded');
+        return;
+    }
+    if (!allLoadedExams || !allLoadedExams[examIndex]) {
+        alert('Exam not found');
+        return;
+    }
+    
+    const exam = allLoadedExams[examIndex];
+    const now = new Date();
+    const examEndTime = new Date(exam.endTime);
+    
+    // Check if exam has been deactivated by teacher
+    const examsData = JSON.parse(localStorage.getItem('examsData') || '[]');
+    const examInMain = examsData.find(e => e.id === exam.id);
+    if (examInMain && examInMain.active === false) {
+        alert('❌ This exam has been deactivated by the teacher.\nYou cannot attempt it at this time.');
+        console.warn(`Student ${currentStudentId} attempted to start deactivated exam: ${exam.id}`);
+        loadStudentExams(); // Refresh list
+        return;
+    }
+    
+    // Check if exam time has passed
+    if(now > examEndTime){
+        alert('❌ This exam has ended!\nExam ended at: ' + examEndTime.toLocaleString());
+        console.warn(`Student ${currentStudentId} attempted to start expired exam: ${exam.id}`);
+        loadStudentExams(); // Refresh to hide expired exam
+        return;
+    }
+    
+    // Prevent retaking already submitted exams
+    if (exam.submitted) {
+        alert('❌ You have already submitted this exam. You cannot retake it.');
+        console.warn(`Student ${currentStudentId} attempted to retake submitted exam: ${exam.id}`);
+        return;
+    }
+    
+    // Check if exam has questions (full exam from student storage)
+    if (!exam.questions || exam.questions.length === 0) {
+        alert('This exam is being prepared. Please try again later when the teacher has set the questions.');
+        return;
+    }
+    
+    console.log(`📝 Student ${currentStudentId} starting exam:`, exam.name);
+    
+    // Store current exam index for timer reference
+    currentExamIndex = examIndex;
+    
+    const container = document.getElementById('exam-list'); // Use correct container
+
+    // Add timer display
+    const timerDisplay = `<div id="timerDisplay" style="position:sticky; top:0; background:white; padding:15px; margin:-25px -25px 20px -25px; border-radius:16px 16px 0 0; border-bottom:3px solid #5a0f1b; z-index:100;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h2 style="margin:0;">${exam.name}</h2>
+            <div style="background:#ff6b6b; color:white; padding:10px 20px; border-radius:8px; font-weight:700; font-size:18px;">
+                Time Left: <span id="timeRemaining">--:--</span>
+            </div>
+        </div>
+    </div>`;
+    
+    container.innerHTML = timerDisplay;
 
     exam.questions.forEach((q, i) => {
         container.innerHTML += `
@@ -435,6 +674,9 @@ function startStudentExam(examIndex) {
     });
 
     container.innerHTML += `<button onclick="submitStudentExam(${examIndex})">Submit Exam</button>`;
+    
+    // Start the countdown timer
+    startExamTimer(examIndex, exam);
 }
 function showPage(pageId, element){
     document.querySelectorAll('.section').forEach(sec => {
@@ -448,6 +690,132 @@ function showPage(pageId, element){
         });
         element.classList.add('active');
     }
+    
+    // Load results when results page is opened
+    if(pageId === 'results') {
+        loadStudentResults();
+        filterResults('all'); // Show all results by default
+    }
+    
+    // Reload exams when exams page is opened
+    if(pageId === 'exams') {
+        loadStudentExams();
+    }
+}
+
+function viewExamDetails(examId) {
+    const studentExams = JSON.parse(localStorage.getItem(`student_${currentStudentId}_exams`) || '[]');
+    const exam = studentExams.find(e => String(e.id) === String(examId));
+    
+    if (!exam) {
+        console.error('Exam not found with ID:', examId);
+        alert('Exam not found');
+        return;
+    }
+    
+    const isAttempted = exam.submitted === true;
+    const totalQuestions = exam.questions ? exam.questions.length : 0;
+    const score = exam.score || 0;
+    const percentage = totalQuestions > 0 ? Math.round((score / totalQuestions) * 100) : 0;
+    const isPassed = percentage >= 50;
+    
+    console.log(`📋 Viewing exam details:`, exam.id, exam.name, `Attempted: ${isAttempted}`);
+    
+    // Create details section
+    let detailsHTML = '';
+    
+    if (isAttempted) {
+        // Attended exam - show full details
+        detailsHTML = `
+            <div style="background:#f0fdf4; padding:20px; border-radius:8px; margin-bottom:20px; border-left:4px solid ${isPassed ? '#27ae60' : '#ff6b6b'};">
+                <h3 style="color:#5a0f1b; margin-top:0;">📋 Exam: ${exam.name}</h3>
+                <p><b>Test Date:</b> ${new Date(exam.startTime).toLocaleString()}</p>
+                <p><b>Your Score:</b> <span style="color:${isPassed ? '#27ae60' : '#ff6b6b'}; font-weight:700; font-size:18px;">${score} / ${totalQuestions}</span> (${percentage}%)</p>
+                <p><b>Result:</b> <span style="color:${isPassed ? '#27ae60' : '#ff6b6b'}; font-weight:700; font-size:16px;">${isPassed ? '✓ PASS' : '✗ FAIL'}</span></p>
+            </div>
+            
+            <div style="margin-top:20px;">
+        `;
+        
+        // Show each question with answer details
+        exam.questions.forEach((question, idx) => {
+            const studentAnswer = exam.studentAnswers && exam.studentAnswers[idx] ? exam.studentAnswers[idx] : '';
+            const teacherAnswer = question.teacherAnswer;
+            const isCorrect = exam.questionResults
+    ? exam.questionResults[idx]
+    : studentAnswer.trim().toLowerCase() === teacherAnswer.trim().toLowerCase();
+            
+            const borderColor = isCorrect ? '#27ae60' : '#ff6b6b';
+            const bgColor = isCorrect ? '#f0fdf4' : '#fef2f2';
+            const statusText = isCorrect ? '✓ CORRECT' : '✗ WRONG';
+            const statusColor = isCorrect ? '#27ae60' : '#ff6b6b';
+            
+            detailsHTML += `
+                <div style="padding:15px; background:${bgColor}; border-radius:8px; border-left:4px solid ${borderColor}; margin-bottom:15px;">
+                    <p style="margin:0 0 10px 0; font-weight:600; color:#333;"><b>Q${idx + 1}:</b> ${question.question}</p>
+                    <p style="margin:8px 0; color:${statusColor}; font-weight:700; font-size:15px;"><b>${statusText}</b></p>
+                    <p style="margin:8px 0; color:#555;"><b>Your Answer:</b> ${studentAnswer || '<em style="color:#999;">(Not answered)</em>'}</p>
+                    <p style="margin:8px 0 0 0; color:#333;"><b>Correct Answer:</b> ${teacherAnswer}</p>
+                </div>
+            `;
+        });
+        
+        detailsHTML += '</div>';
+    } else {
+        // Not attempted - show warning and all questions
+        detailsHTML = `
+            <div style="padding:15px; background:#fff3cd; border-radius:8px; border-left:4px solid #ff9800; margin-bottom:20px;">
+                <p style="margin:0; color:#333; font-weight:700; font-size:16px;">⚠️ EXAM NOT ATTEMPTED</p>
+                <p style="margin:10px 0 0 0; color:#666;">This exam was not completed. Below are the questions and expected answers:</p>
+            </div>
+            
+            <div style="margin-top:20px;">
+        `;
+        
+        // Show all questions with teacher answers
+        if (exam.questions && exam.questions.length > 0) {
+            exam.questions.forEach((question, idx) => {
+                detailsHTML += `
+                    <div style="padding:15px; background:#f9f9f9; border-radius:8px; border-left:4px solid #999; margin-bottom:15px;">
+                        <p style="margin:0 0 10px 0; font-weight:600; color:#333;"><b>Q${idx + 1}:</b> ${question.question}</p>
+                        <p style="margin:8px 0 0 0; color:#333;"><b>Expected Answer:</b> ${question.teacherAnswer}</p>
+                    </div>
+                `;
+            });
+        }
+        
+        detailsHTML += '</div>';
+    }
+    
+    // Display in results section
+    const resultsSection = document.getElementById('results');
+    if (!resultsSection) {
+        console.error('Results section not found');
+        return;
+    }
+    
+    // Clear all result divs first
+    document.querySelectorAll('.result-exam').forEach(el => el.remove());
+    
+    // Create and show details container
+    const detailsDiv = document.createElement('div');
+    detailsDiv.className = 'result-exam';
+    detailsDiv.id = 'exam-details-view';
+    detailsDiv.innerHTML = `
+        <div class="card">
+            <button onclick="closeExamDetails()" style="background:#999; color:white; padding:8px 15px; margin-bottom:15px; border:none; border-radius:5px; cursor:pointer; font-weight:600;">← Back to Results</button>
+            ${detailsHTML}
+        </div>
+    `;
+    
+    resultsSection.appendChild(detailsDiv);
+    detailsDiv.style.display = 'block';
+}
+
+function closeExamDetails() {
+    // Reload results to go back to list
+    loadStudentResults();
+    filterResults('all');
 }
 
 function filterResults(exam){
@@ -473,32 +841,204 @@ function filterResults(exam){
 }
 
 
-async function submitStudentExam(examIndex) {
-    const studentId = 's1';
-    const exams = JSON.parse(localStorage.getItem(`student_${studentId}_exams`));
-    const exam = exams[examIndex];
+function startExamTimer(examIndex, exam) {
+    if (!exam.duration) {
+        console.warn('⚠️ No duration set for exam, auto-submit disabled');
+        return;
+    }
+    
+    // Clear any existing timer
+    if (examTimerInterval) {
+        clearInterval(examTimerInterval);
+    }
+    
+    let remainingSeconds = exam.duration * 60; // Convert minutes to seconds
+    const startTime = Date.now();
+    
+    console.log(`⏱️ Started exam timer for ${exam.name}: ${exam.duration} minutes (${remainingSeconds} seconds)`);
+    
+    const updateTimer = () => {
+        const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+        remainingSeconds = (exam.duration * 60) - elapsedSeconds;
+        
+        if (remainingSeconds <= 0) {
+            clearInterval(examTimerInterval);
+            console.log(`⏳ Time's up! Auto-submitting exam...`);
+            alert('⏰ Time limit reached! Your exam will be automatically submitted.');
+            autoSubmitExam(examIndex);
+            return;
+        }
+        
+        // Update timer display
+        const minutes = Math.floor(remainingSeconds / 60);
+        const seconds = remainingSeconds % 60;
+        const timeDisplay = document.getElementById('timeRemaining');
+        if (timeDisplay) {
+            timeDisplay.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            
+            // Change color when time is running out (less than 5 minutes)
+            if (remainingSeconds < 300) {
+                timeDisplay.parentElement.style.background = '#ff6b6b';
+                if (remainingSeconds < 60) {
+                    timeDisplay.parentElement.style.animation = 'pulse 1s infinite';
+                }
+            }
+        }
+    };
+    
+    // Update immediately
+    updateTimer();
+    
+    // Then update every second
+    examTimerInterval = setInterval(updateTimer, 1000);
+}
 
+// Evaluate a single question using the backend API
+async function evaluateQuestion(question, teacherAnswer, studentAnswer, questionType) {
+    try {
+        const response = await fetch('/evaluate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                question: question,
+                teacher_answer: teacherAnswer,
+                student_answer: studentAnswer,
+                type: questionType
+            })
+        });
+        
+        const data = await response.json();
+        return data.correct === true;
+    } catch (error) {
+        console.warn(`⚠️ Evaluation API error for question "${question.substring(0, 50)}...": ${error.message}`);
+        // Fallback to simple string comparison if API fails
+        return studentAnswer.trim().toLowerCase() === teacherAnswer.trim().toLowerCase();
+    }
+}
+async function autoSubmitExam(examIndex) {
+    if (!currentStudentId) return;
+    if (!allLoadedExams || !allLoadedExams[examIndex]) return;
+
+    const exam = allLoadedExams[examIndex];
     let score = 0;
-    exam.questions.forEach((q, i) => {
+    const studentAnswers = [];
+    const questionResults = [];
+
+    for (let i = 0; i < exam.questions.length; i++) {
+        const q = exam.questions[i];
+        const answer = document.getElementById(`studentAnswer${i}`)?.value || '';
+        studentAnswers.push(answer);
+
+        let isCorrect = false;
+
+        try {
+            const response = await fetch('/evaluate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    question: q.question,
+                    teacher_answer: q.teacherAnswer,
+                    student_answer: answer,
+                    type: q.type || 'direct'
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                isCorrect = data.correct === true;
+            } else {
+                isCorrect = answer.trim().toLowerCase() === q.teacherAnswer.trim().toLowerCase();
+            }
+        } catch {
+            isCorrect = answer.trim().toLowerCase() === q.teacherAnswer.trim().toLowerCase();
+        }
+
+        if (isCorrect) score++;
+        questionResults.push(isCorrect);
+    }
+
+    exam.submitted = true;
+    exam.score = score;
+    exam.studentAnswers = studentAnswers;
+    exam.questionResults = questionResults; // ✅ SAVE RESULTS
+
+    const studentExams = JSON.parse(localStorage.getItem(`student_${currentStudentId}_exams`) || '[]');
+    const idx = studentExams.findIndex(e => e.id === exam.id);
+    if (idx !== -1) {
+        studentExams[idx] = exam;
+        localStorage.setItem(`student_${currentStudentId}_exams`, JSON.stringify(studentExams));
+    }
+
+    if (examTimerInterval) clearInterval(examTimerInterval);
+    loadStudentExams();
+}
+async function submitStudentExam(examIndex) {
+    if (!currentStudentId) return;
+    if (!allLoadedExams || !allLoadedExams[examIndex]) return;
+
+    if (examTimerInterval) clearInterval(examTimerInterval);
+
+    const exam = allLoadedExams[examIndex];
+    let score = 0;
+    const studentAnswers = [];
+    const questionResults = [];
+
+    for (let i = 0; i < exam.questions.length; i++) {
+        const q = exam.questions[i];
         const answer = document.getElementById(`studentAnswer${i}`).value;
-        if(answer.trim() === q.teacherAnswer.trim()) {
-            document.getElementById(`result${i}`).innerHTML = "✔ Correct";
-            document.getElementById(`result${i}`).style.color = "green";
+        studentAnswers.push(answer);
+
+        let isCorrect = false;
+
+        try {
+            const response = await fetch('/evaluate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    question: q.question,
+                    teacher_answer: q.teacherAnswer,
+                    student_answer: answer,
+                    type: q.type || 'direct'
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                isCorrect = data.correct === true;
+            } else {
+                isCorrect = answer.trim().toLowerCase() === q.teacherAnswer.trim().toLowerCase();
+            }
+        } catch {
+            isCorrect = answer.trim().toLowerCase() === q.teacherAnswer.trim().toLowerCase();
+        }
+
+        const resultEl = document.getElementById(`result${i}`);
+        if (isCorrect) {
+            resultEl.innerHTML = "✔ Correct";
+            resultEl.style.color = "green";
             score++;
         } else {
-            document.getElementById(`result${i}`).innerHTML = "✖ Wrong";
-            document.getElementById(`result${i}`).style.color = "red";
+            resultEl.innerHTML = "✖ Wrong";
+            resultEl.style.color = "red";
         }
-    });
+
+        questionResults.push(isCorrect);
+    }
 
     alert(`Final Score: ${score} / ${exam.questions.length}`);
 
-    // Mark exam as submitted
     exam.submitted = true;
-    exams[examIndex] = exam;
-    localStorage.setItem(`student_${studentId}_exams`, JSON.stringify(exams));
+    exam.score = score;
+    exam.studentAnswers = studentAnswers;
+    exam.questionResults = questionResults; // ✅ SAVE RESULTS
 
-    // Reload exam list
+    const studentExams = JSON.parse(localStorage.getItem(`student_${currentStudentId}_exams`) || '[]');
+    const idx = studentExams.findIndex(e => e.id === exam.id);
+    if (idx !== -1) {
+        studentExams[idx] = exam;
+        localStorage.setItem(`student_${currentStudentId}_exams`, JSON.stringify(studentExams));
+    }
+
     loadStudentExams();
 }
 async function logout(){
@@ -586,14 +1126,21 @@ async function logout(){
                 const res = await fetch('/api/student/me', {credentials:'same-origin'});
                 if(!res.ok) throw new Error('not logged in');
                 const data = await res.json();
+                console.log('👤 Student profile loaded:', data);
                 document.getElementById('user-name').textContent = data.username;
                 document.getElementById('profile-name').textContent = data.name || '';
                 document.getElementById('profile-roll').textContent = data.roll_number || '';
                 document.getElementById('profile-course').textContent = data.department || '';
                 document.getElementById('profile-email').textContent = data.email || '';
 
+        currentStudentId = data.roll_number || data.username; // Store student ID for later use
+                console.log(`✅ Student ID set to: ${currentStudentId}`);
+                
                 // Start typing animation with the loaded username
                 startTypingAnimation(data.username);
+                
+                // Load exams now that we have the student ID
+                loadStudentExams();
 
                 // fill settings inputs
                 document.getElementById('settings-name').value = data.name || '';
@@ -611,6 +1158,7 @@ async function logout(){
                     ava.innerHTML = '';
                 }
             }catch(e){
+                console.error('❌ Profile load failed:', e);
                 // redirect to login if unauthenticated
                 window.location.href = 'student portal.html';
             }
