@@ -93,29 +93,47 @@ def create_app():
     
     @app.route("/evaluate", methods=["POST"])
     def evaluate():
-        data = request.json
+        try:
+            data = request.json or {}
 
-        question = data.get("question", "")
-        teacher_answer = data.get("teacher_answer", "")
-        student_answer = data.get("student_answer", "")
-        q_type = data.get("type", "direct")
+            question = data.get("question", "").strip()
+            teacher_answer = data.get("teacher_answer", "").strip()
+            student_answer = data.get("student_answer", "").strip()
+            q_type = data.get("type", "direct")
 
-        if q_type == "numerical":
-            result = evaluate_numerical(teacher_answer, student_answer)
+            print("DEBUG student_answer:", repr(student_answer))
 
-        elif q_type == "code":
-            result = evaluate_code_question(question, teacher_answer, student_answer)
+            # 🔥 FINAL EMPTY PROTECTION
+            if student_answer == "" or student_answer.lower() == "not answered":
+                print("⚠️ Empty answer detected → Marking incorrect")
+                return jsonify({"correct": False})
 
-        elif q_type == "direct":
-            result = evaluate_fill_blank(question, teacher_answer, student_answer)
+            if q_type == "numerical":
+                result = evaluate_numerical(teacher_answer, student_answer)
 
-        elif q_type == "english":
-            result = evaluate_semantic(question, teacher_answer, student_answer)
+            elif q_type == "code":
+                result = evaluate_code_question(question, teacher_answer, student_answer)
 
-        else:
-            return jsonify({"error": "Invalid type"}), 400
+            elif q_type == "direct":
+                result = evaluate_fill_blank(question, teacher_answer, student_answer)
 
-        return jsonify({"correct": result})
+            elif q_type == "english":
+                try:
+                    result = evaluate_semantic(question, teacher_answer, student_answer)
+                    print(f"✅ English Semantic evaluated: Teacher='{teacher_answer}', Student='{student_answer}', Result={result}")
+                except Exception as sem_error:
+                    print(f"⚠️  English Semantic evaluation failed: {sem_error}, falling back to string comparison")
+                    # Fallback to simple comparison if semantic evaluation fails
+                    result = student_answer.lower().strip() == teacher_answer.lower().strip()
+
+            else:
+                return jsonify({"error": "Invalid type"}), 400
+
+            return jsonify({"correct": result})
+        
+        except Exception as e:
+            print(f"❌ Evaluation error: {e}")
+            return jsonify({"error": str(e), "correct": False}), 500
 
     @app.route("/")
     def index():
@@ -175,38 +193,83 @@ def create_app():
     def student_register():
         try:
             data = request.get_json() or {}
-            # basic validation
+
+        # basic validation
             if not data.get('username') or not data.get('password'):
                 return jsonify(message='username and password required'), 400
 
-            # prevent duplicates by username or email or roll_number
+        # -------------------------
+        # Username validation
+        # only small letters + numbers
+        # -------------------------
+            username = data.get('username', '').strip()
+            if not re.match(r'^[a-z0-9]+$', username):
+                return jsonify(message='Username must contain only small letters and numbers'), 400
+
+        # -------------------------
+        # Email validation
+        # must end with @mgits.ac.in
+        # -------------------------
+            email = data.get('email', '').strip()
+
+            if email.count('@') != 1:
+                return jsonify(message='Email must contain only one @ symbol'), 400
+
+            if not re.match(r'^[a-zA-Z0-9._%+-]+@mgits\.ac\.in$', email):
+                return jsonify(message='Email must be a valid @mgits.ac.in address'), 400
+
+        # -------------------------
+        # Prevent duplicate users
+        # -------------------------
             exists = Student.query.filter(
-                (Student.username == data.get('username')) |
-                (Student.email == data.get('email')) |
+                (Student.username == username) |
+                (Student.email == email) |
                 (Student.roll_number == data.get('roll_number'))
-            ).first()
+                ).first()
+
             if exists:
                 return jsonify(message='user already exists'), 400
 
             student = Student(
                 name=data.get('name'),
-                username=data.get('username'),
-                email=data.get('email'),
+                username=username,
+                email=email,
                 department=data.get('department'),
                 phone=data.get('phone'),
                 roll_number=data.get('roll_number'),
                 semester=data.get('semester')
-            )
+                )
+
             student.set_password(data.get('password'))
+
             if data.get('photo'):
                 student.photo = data.get('photo')
+
             db.session.add(student)
             db.session.commit()
+
             return jsonify(message='registered'), 200
+
         except Exception as e:
             app.logger.error(f"Registration error: {e}")
             return jsonify(message='registration failed'), 500
+    # -------------------------
+# Username validation
+# -------------------------
+        username = data.get('username', '').strip()
+        if not re.match(r'^[a-z0-9]+$', username):
+            return jsonify(message='Username must contain only small letters and numbers'), 400
 
+# -------------------------
+# Email validation
+# -------------------------
+        email = data.get('email', '').strip()
+
+        if not re.match(r'^[a-zA-Z0-9._%+-]+@mgits\.ac\.in$', email):
+            return jsonify(message='Email must be a valid @mgits.ac.in address'), 400
+
+        if email.count('@') != 1:
+            return jsonify(message='Email must contain only one @ symbol'), 400
     @app.route('/api/student/login', methods=['POST'])
     def student_login():
         try:
@@ -358,7 +421,6 @@ def create_app():
                 id=teacher.id,
                 username=teacher.username,
                 name=teacher.name,
-                email=teacher.email,
                 department=teacher.department,
                 phone=teacher.phone
             )
@@ -373,7 +435,7 @@ def create_app():
             if not teacher:
                 return jsonify(message='not authenticated'), 401
             data = request.get_json() or {}
-            for field in ('name', 'email', 'department', 'phone', 'username'):
+            for field in ('name', 'department', 'phone', 'username'):
                 if field in data:
                     setattr(teacher, field, data[field])
             db.session.commit()

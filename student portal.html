@@ -41,7 +41,7 @@
     </div>
     <div class="login-title">Student Login</div>
 
-    <input id="login-username" type="text" placeholder="📚 Student ID" required>
+    <input id="login-username" type="text" placeholder="📚 Username" required>
     <input id="login-password" type="password" placeholder="🔒 Password" required>
 
     <button class="btn" onclick="login();">
@@ -81,7 +81,7 @@
             <input id="reg-semester" type="text" placeholder="Semester">
             <input id="reg-fullname" type="text" placeholder="Full Name">
 
-            <input id="reg-username" type="text" placeholder="Username">
+            <input id="reg-username" type="text" placeholder="Username (only small letters & numbers)">
             <input id="reg-roll" type="text" placeholder="College Roll Number">
 
             <input id="reg-password" type="password" placeholder="Password">
@@ -143,6 +143,9 @@ document.addEventListener('DOMContentLoaded', function(){
     });
   }
 });
+// Username validation (only small letters and numbers)
+
+
 
 async function registerStudent(){
   const semester = document.getElementById('reg-semester').value.trim();
@@ -154,6 +157,19 @@ async function registerStudent(){
   const department = document.getElementById('reg-department').value.trim();
   const phone = document.getElementById('reg-mobile').value.trim();
   const email = document.getElementById('reg-email').value.trim();
+  // Email validation
+const emailPattern = /^[a-zA-Z0-9._%+-]+@mgits\.ac\.in$/;
+
+if(!emailPattern.test(email)){
+  alert('Email must be a valid @mgits.ac.in address');
+  return;
+}
+
+// Ensure only one @ symbol
+if((email.match(/@/g) || []).length !== 1){
+  alert('Email must contain only one @ symbol');
+  return;
+}
 
   if(password !== confirm){
     alert('Passwords do not match');
@@ -203,6 +219,25 @@ async function login(){
     alert('Error: '+err);
   }
 }
+// Username validation with popup warning
+function validateUsername(inputId){
+  const input = document.getElementById(inputId);
+
+  if(input){
+    input.addEventListener('input', function(){
+      const value = this.value;
+
+      if(!/^[a-z0-9]*$/.test(value)){
+        alert("Only small letters (a-z) and numbers (0-9) are allowed!");
+        this.value = value.slice(0, -1); // remove last invalid character
+      }
+    });
+  }
+}
+
+// Apply to both register and login username
+validateUsername('reg-username');
+validateUsername('login-username');
 </script>
 
 </body>

@@ -1,51 +1,144 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
     <title>Smart Evaluation System - Teacher Exam Setup</title>
+
     <style>
         body {
-            font-family: Arial, sans-serif;
-            margin: 40px;
-            background: #f4f6f9;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(to right, #ffffff, #ffe5e5);
+        }
+
+        .container {
+            width: 85%;
+            max-width: 1000px;
+            margin: 40px auto;
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+
+        h2 {
+            text-align: center;
+            color: #c40000;
+            margin-bottom: 10px;
+        }
+
+        #examInfo {
+            text-align: center;
+            font-weight: 600;
+            color: #444;
+            margin-bottom: 25px;
+            padding: 10px;
+            background: #fff5f5;
+            border-left: 5px solid #c40000;
+            border-radius: 6px;
+        }
+
+        label {
+            font-weight: 600;
+            color: #333;
         }
 
         input, textarea, select {
             width: 100%;
-            padding: 8px;
-            margin: 6px 0;
-            box-sizing: border-box;
+            padding: 10px;
+            margin: 8px 0 15px 0;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            outline: none;
+            transition: 0.3s;
+            font-size: 14px;
+        }
+
+        input:focus, textarea:focus, select:focus {
+            border-color: #c40000;
+            box-shadow: 0 0 5px rgba(196, 0, 0, 0.3);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 80px;
         }
 
         button {
-            padding: 10px 20px;
-            margin-top: 15px;
-            background: green;
-            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
             border: none;
             cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+            transition: 0.3s;
+        }
+
+        .btn-primary {
+            background: #c40000;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #990000;
+        }
+
+        .btn-secondary {
+            background: #ffffff;
+            color: #c40000;
+            border: 2px solid #c40000;
+        }
+
+        .btn-secondary:hover {
+            background: #c40000;
+            color: white;
         }
 
         .question-box {
-            background: white;
-            padding: 15px;
-            margin: 15px 0;
-            border-radius: 8px;
-            box-shadow: 0 0 5px rgba(0,0,0,0.1);
+            background: #fffafa;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(196, 0, 0, 0.08);
+            border-left: 6px solid #c40000;
         }
+
+        .question-box h3 {
+            color: #c40000;
+            margin-bottom: 10px;
+        }
+
+        .button-group {
+            text-align: center;
+            margin-top: 20px;
+        }
+
     </style>
 </head>
+
 <body>
 
-<h2>Smart Evaluation System - Teacher Exam Setup</h2>
+<div class="container">
 
-<div id="examInfo" style="margin-bottom:20px; font-weight:600;"></div>
-<label>Enter Total Number of Questions:</label>
-<input type="number" id="totalQuestions" min="1" placeholder="Enter number of questions">
+    <h2>Smart Evaluation System - Teacher Exam Setup</h2>
 
-<button onclick="generateQuestions()">Generate Questions</button>
+    <div id="examInfo"></div>
 
-<div id="questionsContainer"></div>
-<button id="setExamBtn">Set Exam</button>
+    <label>Enter Total Number of Questions:</label>
+    <input type="number" id="totalQuestions" min="1" placeholder="Enter number of questions">
+
+    <div class="button-group">
+        <button class="btn-secondary" onclick="generateQuestions()">Generate Questions</button>
+    </div>
+
+    <div id="questionsContainer"></div>
+
+    <div class="button-group">
+        <button class="btn-primary" id="setExamBtn">Set Exam</button>
+    </div>
+
+</div>
 
 <script>
 let examData = {
@@ -101,12 +194,6 @@ function generateQuestions() {
             <div class="question-box">
                 <h3>Question ${i}</h3>
 
-                <label>Question:</label>
-                <textarea id="question${i}" placeholder="Enter question here"></textarea>
-
-                <label>Teacher Answer:</label>
-                <textarea id="teacher${i}" placeholder="Enter correct answer"></textarea>
-
                 <label>Type:</label>
                 <select id="type${i}">
                     <option value="numerical">Numerical</option>
@@ -114,6 +201,12 @@ function generateQuestions() {
                     <option value="direct">Direct Fill</option>
                     <option value="english">English Semantic</option>
                 </select>
+
+                <label>Question:</label>
+                <textarea id="question${i}" placeholder="Enter question here"></textarea>
+
+                <label>Teacher Answer:</label>
+                <textarea id="teacher${i}" placeholder="Enter correct answer"></textarea>
             </div>
         `;
     }

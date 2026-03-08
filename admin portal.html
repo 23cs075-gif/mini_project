@@ -41,7 +41,12 @@
     </div>
     <div class="login-title">Teacher Login</div>
 
-    <input id="login-username" type="text" placeholder="👨‍🏫 Teacher ID" required>
+    <input id="login-username"
+       type="text"
+       placeholder="👨‍🏫 Teacher ID"
+       pattern="[a-z0-9]+"
+       title="Only lowercase letters and numbers allowed"
+       required>
     <input id="login-password" type="password" placeholder="🔒 Password" required>
 
     <button class="btn" onclick="login();">
@@ -68,7 +73,12 @@
 
         <div class="form-grid">
             <input id="reg-fullname" type="text" placeholder="Full Name">
-            <input id="reg-username" type="text" placeholder="Username">
+            <input id="reg-username"
+       type="text"
+       placeholder="Username only small letters&numbers
+       pattern="[a-z0-9]+"
+       title="Only small letters & numbers"
+       required>
 
             <input id="reg-password" type="password" placeholder="Password">
             <input id="reg-department" type="text" placeholder="Department">
@@ -76,7 +86,7 @@
             <input id="reg-confirm-password" type="password" placeholder="Confirm Password">
             <input id="reg-mobile" type="tel" placeholder="Mobile Number">
 
-            <input id="reg-email" type="email" placeholder="Email ID">
+            
 
             <button type="button" style="grid-column:1/3;" onclick="registerTeacher()">
                 Register
@@ -160,6 +170,23 @@ async function login(){
     alert('Error: '+err);
   }
 }
+// Force lowercase & remove special characters while typing
+function validateUsername(inputId){
+  const input = document.getElementById(inputId);
+
+  input.addEventListener('input', function(){
+    const value = this.value;
+
+    if(!/^[a-z0-9]*$/.test(value)){
+      alert("Only small letters (a-z) and numbers (0-9) are allowed!");
+      this.value = value.slice(0, -1); // remove last invalid character
+    }
+  });
+}
+
+validateUsername('login-username');
+validateUsername('reg-username');
+
 </script>
 
 </body>
