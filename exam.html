@@ -145,6 +145,8 @@ let examData = {
     id: null,
     name: null,
     startTime: null,
+    endTime: null,
+    duration: null,
     questions: [],
     students: []
 };
@@ -155,31 +157,39 @@ function getQueryParam(name) {
     return params.get(name);
 }
 
-// load exam info from localStorage if examId was provided
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', async () => {
     const examId = getQueryParam('examId');
-    if (examId) {
-        const examsData = JSON.parse(localStorage.getItem('examsData') || '[]');
-        const exam = examsData.find(e => String(e.id) === String(examId));
-        if (exam) {
-            examData.id = exam.id;
-            examData.name = exam.name;
-            examData.startTime = exam.startTime;
-            examData.endTime = exam.endTime; // Store end time for timer
-            examData.duration = exam.duration; // Store duration in minutes
-            examData.students = exam.students || [];
-
-            console.log('Exam loaded:', examData);
-            console.log('Students for this exam:', examData.students);
-            console.log('Duration:', examData.duration, 'minutes');
-
-            const infoDiv = document.getElementById('examInfo');
-            infoDiv.textContent = `Exam: ${examData.name} \u2014 Start: ${examData.startTime} \u2014 Duration: ${examData.duration} mins \u2014 Students: ${examData.students.length}`;
-        } else {
-            console.error('Exam not found with ID:', examId);
+    if (!examId) {
+        alert('Exam ID missing. Please create exam from teacher dashboard.');
+        window.location.href = 'teach.html';
+        return;
+    }
+    try {
+        const res = await fetch('/api/teacher/exams', { credentials: 'same-origin' });
+        const data = await res.json();
+        if (!res.ok) {
+            alert(data.message || 'Failed to load exam');
+            return;
         }
-    } else {
-        console.warn('No examId in URL - standalone mode');
+        const exam = (data.exams || []).find(e => String(e.id) === String(examId));
+        if (!exam) {
+            alert('Exam not found');
+            window.location.href = 'teach.html';
+            return;
+        }
+
+        examData.id = exam.id;
+        examData.name = exam.name;
+        examData.startTime = exam.startTime;
+        examData.endTime = exam.endTime;
+        examData.duration = exam.duration;
+        examData.students = exam.students || [];
+
+        const infoDiv = document.getElementById('examInfo');
+        infoDiv.textContent = `Exam: ${examData.name} — Start: ${examData.startTime} — Duration: ${examData.duration} mins — Students: ${examData.students.length}`;
+    } catch (err) {
+        console.error('Failed to load exam:', err);
+        alert('Failed to load exam');
     }
 });
 
@@ -213,7 +223,7 @@ function generateQuestions() {
 }
 
 // Set Exam for Students
-document.getElementById("setExamBtn").addEventListener("click", () => {
+document.getElementById("setExamBtn").addEventListener("click", async () => {
     const total = document.getElementById("totalQuestions").value;
     if(total < 1){
         alert("Enter number of questions first!");
@@ -254,59 +264,34 @@ document.getElementById("setExamBtn").addEventListener("click", () => {
         questions.push({question: q, teacherAnswer: a, type: t});
     }
 
-    // Save exam for each student
+    if(!examData.id){
+        alert('Exam not loaded. Please go back and open again.');
+        return;
+    }
+
     if(!examData.students || examData.students.length === 0){
         alert('No students assigned to this exam! Go back and select students.');
         return;
     }
-    
-    console.log('Starting to save exam for students:', examData.students);
-    let savedCount = 0;
-    examData.students.forEach(student => {
-        // Use roll_number for consistency with student dashboard
-        const studentKey = student.roll_number || student.id;
-        console.log(`Saving exam for student with roll_number:`, studentKey, 'Full student object:', student);
-        
-        let studentExams = JSON.parse(localStorage.getItem(`student_${studentKey}_exams`) || '[]');
-        
-        // Check if this exam already exists for this student (by exam ID from examData)
-        const existingExamIndex = studentExams.findIndex(e => e.id === examData.id);
-        
-        const newExam = {
-            id: examData.id, // Use the actual exam ID from examsData, NOT Date.now()
-            name: examName,
-            questions: questions,
-            startTime: examStart,
-            endTime: examData.endTime, // Include end time for timer
-            duration: examData.duration, // Include duration for auto-submit
-            submitted: false,
-            score: null
-        };
-        
-        if (existingExamIndex !== -1) {
-            // Update existing exam (preserving submitted status)
-            console.log(`Exam ${examData.id} already exists for student ${studentKey}. Updating questions...`);
-            newExam.submitted = studentExams[existingExamIndex].submitted; // Preserve submission status
-            newExam.score = studentExams[existingExamIndex].score; // Preserve score
-            studentExams[existingExamIndex] = newExam;
-        } else {
-            // Add new exam
-            studentExams.push(newExam);
-        }
-        
-        localStorage.setItem(`student_${studentKey}_exams`, JSON.stringify(studentExams));
-        console.log(`✓ Saved exam to student_${studentKey}_exams. Total exams for student:`, studentExams.length);
-        savedCount++;
-    });
 
-    console.log(`✓ Successfully saved exam to ${savedCount} students`);
-    alert(`Exam successfully set for ${savedCount} students!`);
-    
-    // Redirect back to teacher dashboard
-    console.log('Redirecting to teach.html...');
-    setTimeout(() => {
+    try {
+        const res = await fetch(`/api/teacher/exams/${examData.id}/questions`, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ questions })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            alert(data.message || 'Failed to save exam questions');
+            return;
+        }
+        alert('Exam questions saved successfully!');
         window.location.href = 'teach.html';
-    }, 500);
+    } catch (err) {
+        console.error('Save exam questions failed:', err);
+        alert('Failed to save exam questions');
+    }
 });
 </script>
 

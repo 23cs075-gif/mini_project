@@ -85,7 +85,18 @@
             <input id="reg-roll" type="text" placeholder="College Roll Number">
 
             <input id="reg-password" type="password" placeholder="Password">
-            <input id="reg-department" type="text" placeholder="Department">
+            <select id="reg-department">
+              <option value="" selected disabled>Select Department</option>
+              <option value="CSA">CSA</option>
+              <option value="CSB">CSB</option>
+              <option value="CYBER">CYBER</option>
+              <option value="AIDS">AIDS</option>
+              <option value="AI">AI</option>
+              <option value="MECH">MECH</option>
+              <option value="CIVIL">CIVIL</option>
+              <option value="EEE">EEE</option>
+              <option value="EC">EC</option>
+            </select>
 
             <input id="reg-confirm-password" type="password" placeholder="Confirm Password">
             <input id="reg-mobile" type="tel" placeholder="Mobile Number">
@@ -168,6 +179,11 @@ if(!emailPattern.test(email)){
 // Ensure only one @ symbol
 if((email.match(/@/g) || []).length !== 1){
   alert('Email must contain only one @ symbol');
+  return;
+}
+
+if(!department){
+  alert('Please select a department');
   return;
 }
 

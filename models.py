@@ -36,6 +36,7 @@ class Teacher(db.Model):
     password = db.Column(db.String(200))
     department = db.Column(db.String(50))
     phone = db.Column(db.String(20))
+    photo = db.Column(db.Text)  # base64 or URL
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def set_password(self, raw_password):
@@ -78,3 +79,4 @@ class Question(db.Model):
     exam_id = db.Column(db.Integer, db.ForeignKey('exam.id'))
     question_text = db.Column(db.Text)
     correct_answer = db.Column(db.Text)
+    question_type = db.Column(db.String(30), default='direct')

@@ -3,13 +3,14 @@ from flask import Flask, request, jsonify, session, redirect
 from config import Config
 from extensions import db
 from sqlalchemy import text
+from datetime import datetime, timedelta
 import re
 from sentence_transformers import SentenceTransformer, util
 from transformers import pipeline
 
 # make sure models are imported so SQLAlchemy knows about them
 import models
-from models import Student, Teacher
+from models import Student, Teacher, Exam, ExamStudent, Question
 
 # import models module so that SQLAlchemy is aware of all subclasses of
 # db.Model before create_all() is called.  the import has no other side
@@ -19,6 +20,12 @@ print("Loading AI Models...")
 sbert = SentenceTransformer("all-MiniLM-L6-v2")
 nli = pipeline("text-classification", model="roberta-large-mnli")
 print("Models Loaded!")
+
+APP_TIMEZONE_OFFSET_MINUTES = int(os.getenv('APP_TIMEZONE_OFFSET_MINUTES', '330'))
+
+
+def app_now():
+    return datetime.utcnow() + timedelta(minutes=APP_TIMEZONE_OFFSET_MINUTES)
 
 def normalize(code: str) -> str:
     code = re.sub(r'#.*', '', code)
@@ -30,26 +37,64 @@ def evaluate_code_question(question, correct_blank, student_answer):
     student_n = normalize(student_answer)
     answer_n = normalize(correct_blank)
 
-    # Split question at blank → prefix (before blank) and suffix (after blank)
-    parts = re.split(r"_+", question, maxsplit=1)
-    prefix_n = normalize(parts[0]) if parts else ""
-    suffix_n = normalize(parts[1]) if len(parts) > 1 else ""
+    if not answer_n:
+        return student_n == answer_n
 
-    # Strip prefix from the start of student answer (if present)
-    stripped = student_n
-    if prefix_n and stripped.startswith(prefix_n):
-        stripped = stripped[len(prefix_n):]
+    # Find the real blank placeholder.
+    # Prefer underscore runs with length >= 2 so identifiers like sum_numbers
+    # don't get treated as blanks. If none exist, fall back to the longest run.
+    blank_runs = list(re.finditer(r"_+", question or ""))
+    if blank_runs:
+        preferred = [m for m in blank_runs if len(m.group(0)) >= 2]
+        target = max(preferred or blank_runs, key=lambda m: len(m.group(0)))
+        prefix_raw = question[:target.start()]
+        suffix_raw = question[target.end():]
+    else:
+        prefix_raw = question or ""
+        suffix_raw = ""
 
-    # Strip suffix from the end of student answer:
-    # Try longest possible suffix match first, then progressively shorter
-    if suffix_n:
-        for length in range(len(suffix_n), 0, -1):
-            if stripped.endswith(suffix_n[:length]):
-                stripped = stripped[:-length]
-                break
+    prefix_n = normalize(prefix_raw)
+    suffix_n = normalize(suffix_raw)
 
-    # Compare the stripped remainder with the correct answer
-    return stripped == answer_n
+    # The correct blank must appear in student answer.
+    # Then trim any overlapping left/right context around each match.
+    start = 0
+    while True:
+        idx = student_n.find(answer_n, start)
+        if idx == -1:
+            break
+
+        left_side = student_n[:idx]
+        right_side = student_n[idx + len(answer_n):]
+
+        # Trim longest suffix of left_side that matches ending part of prefix context
+        left_overlap = 0
+        if prefix_n and left_side:
+            max_len = min(len(prefix_n), len(left_side))
+            for length in range(max_len, 0, -1):
+                if left_side.endswith(prefix_n[-length:]):
+                    left_overlap = length
+                    break
+
+        # Trim longest prefix of right_side that matches starting part of suffix context
+        right_overlap = 0
+        if suffix_n and right_side:
+            max_len = min(len(suffix_n), len(right_side))
+            for length in range(max_len, 0, -1):
+                if right_side.startswith(suffix_n[:length]):
+                    right_overlap = length
+                    break
+
+        left_remaining = left_side[:-left_overlap] if left_overlap else left_side
+        right_remaining = right_side[right_overlap:] if right_overlap else right_side
+
+        # Accept if nothing remains outside the matched answer + trimmed context
+        if left_remaining == "" and right_remaining == "":
+            return True
+
+        start = idx + 1
+
+    return False
 
 
 def evaluate_fill_blank(question, teacher_answer, student_answer):
@@ -447,7 +492,8 @@ def create_app():
                 username=teacher.username,
                 name=teacher.name,
                 department=teacher.department,
-                phone=teacher.phone
+                phone=teacher.phone,
+                photo=teacher.photo,
             )
         except Exception as e:
             app.logger.error(f"Get teacher info error: {e}")
@@ -460,7 +506,7 @@ def create_app():
             if not teacher:
                 return jsonify(message='not authenticated'), 401
             data = request.get_json() or {}
-            for field in ('name', 'department', 'phone', 'username'):
+            for field in ('name', 'department', 'phone', 'username', 'photo'):
                 if field in data:
                     setattr(teacher, field, data[field])
             db.session.commit()
@@ -517,6 +563,474 @@ def create_app():
             app.logger.error(f"Get students error: {e}")
             return jsonify(message='failed to fetch students'), 500
 
+    def _to_dt(value):
+        if not value:
+            return None
+        try:
+            return datetime.fromisoformat(value)
+        except Exception:
+            return None
+
+    def _exam_to_dict(exam, include_questions=False, include_students=False):
+        out = {
+            'id': exam.id,
+            'name': exam.name,
+            'startTime': exam.start_time.isoformat() if exam.start_time else None,
+            'endTime': exam.end_time.isoformat() if exam.end_time else None,
+            'duration': exam.duration,
+            'active': bool(exam.status_active),
+            'questions': []
+        }
+        if include_questions:
+            qs = Question.query.filter_by(exam_id=exam.id).order_by(Question.id.asc()).all()
+            out['questions'] = [
+                {
+                    'id': q.id,
+                    'question': q.question_text,
+                    'teacherAnswer': q.correct_answer,
+                    'type': (getattr(q, 'question_type', None) or 'direct')
+                }
+                for q in qs
+            ]
+        if include_students:
+            links = ExamStudent.query.filter_by(exam_id=exam.id).all()
+            rows = []
+            for link in links:
+                student = Student.query.get(link.student_id)
+                if student:
+                    rows.append({
+                        'id': student.id,
+                        'roll_number': student.roll_number,
+                        'name': student.name
+                    })
+            out['students'] = rows
+        return out
+
+    def _refresh_exam_status(exam):
+        now = app_now()
+        should_be_active = bool(exam.start_time and exam.end_time and exam.start_time <= now <= exam.end_time)
+        if exam.status_active != should_be_active:
+            exam.status_active = should_be_active
+
+    @app.route('/api/teacher/exams', methods=['GET'])
+    def teacher_get_exams():
+        try:
+            teacher = _current_teacher()
+            if not teacher:
+                return jsonify(message='not authenticated'), 401
+
+            exams = Exam.query.filter_by(created_by=teacher.id).order_by(Exam.id.desc()).all()
+            for exam in exams:
+                _refresh_exam_status(exam)
+            db.session.commit()
+
+            return jsonify(exams=[_exam_to_dict(exam, include_students=True, include_questions=True) for exam in exams])
+        except Exception as e:
+            app.logger.error(f"Teacher get exams error: {e}")
+            return jsonify(message='failed to fetch exams'), 500
+
+    @app.route('/api/teacher/exams', methods=['POST'])
+    def teacher_create_exam():
+        try:
+            teacher = _current_teacher()
+            if not teacher:
+                return jsonify(message='not authenticated'), 401
+
+            data = request.get_json() or {}
+            student_roll_numbers = data.get('student_roll_numbers') or []
+            exam = Exam(
+                name=(data.get('name') or '').strip(),
+                start_time=_to_dt(data.get('startTime')),
+                end_time=_to_dt(data.get('endTime')),
+                duration=int(data.get('duration') or 0),
+                created_by=teacher.id,
+                status_active=False,
+                questions_count=0,
+            )
+            if not exam.name or not exam.start_time or not exam.end_time or exam.duration <= 0:
+                return jsonify(message='invalid exam payload'), 400
+
+            db.session.add(exam)
+            db.session.flush()
+
+            students = Student.query.filter(Student.roll_number.in_(student_roll_numbers)).all() if student_roll_numbers else []
+            for s in students:
+                db.session.add(ExamStudent(exam_id=exam.id, student_id=s.id, status='not-attempted', score=0, answers=[]))
+
+            db.session.commit()
+            return jsonify(message='created', exam=_exam_to_dict(exam, include_students=True)), 201
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Teacher create exam error: {e}")
+            return jsonify(message='failed to create exam'), 500
+
+    @app.route('/api/teacher/exams/<int:exam_id>/questions', methods=['POST'])
+    def teacher_save_exam_questions(exam_id):
+        try:
+            teacher = _current_teacher()
+            if not teacher:
+                return jsonify(message='not authenticated'), 401
+
+            exam = Exam.query.filter_by(id=exam_id, created_by=teacher.id).first()
+            if not exam:
+                return jsonify(message='exam not found'), 404
+
+            data = request.get_json() or {}
+            questions = data.get('questions') or []
+            if not isinstance(questions, list) or len(questions) == 0:
+                return jsonify(message='questions required'), 400
+
+            Question.query.filter_by(exam_id=exam.id).delete()
+            for item in questions:
+                db.session.add(Question(
+                    exam_id=exam.id,
+                    question_text=(item.get('question') or '').strip(),
+                    correct_answer=(item.get('teacherAnswer') or '').strip(),
+                    question_type=(item.get('type') or 'direct').strip()
+                ))
+
+            exam.questions_count = len(questions)
+            db.session.commit()
+            return jsonify(message='saved')
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Teacher save questions error: {e}")
+            return jsonify(message='failed to save questions'), 500
+
+    @app.route('/api/teacher/exams/<int:exam_id>/activate', methods=['POST'])
+    def teacher_activate_exam(exam_id):
+        try:
+            teacher = _current_teacher()
+            if not teacher:
+                return jsonify(message='not authenticated'), 401
+            exam = Exam.query.filter_by(id=exam_id, created_by=teacher.id).first()
+            if not exam:
+                return jsonify(message='exam not found'), 404
+            exam.status_active = True
+            db.session.commit()
+            return jsonify(message='activated')
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Teacher activate exam error: {e}")
+            return jsonify(message='failed to activate exam'), 500
+
+    @app.route('/api/teacher/exams/<int:exam_id>/deactivate', methods=['POST'])
+    def teacher_deactivate_exam(exam_id):
+        try:
+            teacher = _current_teacher()
+            if not teacher:
+                return jsonify(message='not authenticated'), 401
+            exam = Exam.query.filter_by(id=exam_id, created_by=teacher.id).first()
+            if not exam:
+                return jsonify(message='exam not found'), 404
+            exam.status_active = False
+            db.session.commit()
+            return jsonify(message='deactivated')
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Teacher deactivate exam error: {e}")
+            return jsonify(message='failed to deactivate exam'), 500
+
+    @app.route('/api/teacher/exams/<int:exam_id>/extend', methods=['POST'])
+    def teacher_extend_exam(exam_id):
+        try:
+            teacher = _current_teacher()
+            if not teacher:
+                return jsonify(message='not authenticated'), 401
+            exam = Exam.query.filter_by(id=exam_id, created_by=teacher.id).first()
+            if not exam:
+                return jsonify(message='exam not found'), 404
+            data = request.get_json() or {}
+            new_end = _to_dt(data.get('endTime'))
+            if not new_end or (exam.end_time and new_end <= exam.end_time):
+                return jsonify(message='invalid end time'), 400
+            exam.end_time = new_end
+            if exam.start_time:
+                exam.duration = max(1, int((exam.end_time - exam.start_time).total_seconds() / 60))
+            db.session.commit()
+            return jsonify(message='extended')
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Teacher extend exam error: {e}")
+            return jsonify(message='failed to extend exam'), 500
+
+    @app.route('/api/teacher/exams/<int:exam_id>/schedule', methods=['POST'])
+    def teacher_schedule_exam(exam_id):
+        try:
+            teacher = _current_teacher()
+            if not teacher:
+                return jsonify(message='not authenticated'), 401
+            exam = Exam.query.filter_by(id=exam_id, created_by=teacher.id).first()
+            if not exam:
+                return jsonify(message='exam not found'), 404
+            data = request.get_json() or {}
+            new_start = _to_dt(data.get('startTime'))
+            new_end = _to_dt(data.get('endTime'))
+            if not new_start or not new_end or new_end <= new_start:
+                return jsonify(message='invalid schedule'), 400
+            exam.start_time = new_start
+            exam.end_time = new_end
+            exam.duration = max(1, int((new_end - new_start).total_seconds() / 60))
+            exam.status_active = False
+            db.session.commit()
+            return jsonify(message='scheduled')
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Teacher schedule exam error: {e}")
+            return jsonify(message='failed to schedule exam'), 500
+
+    @app.route('/api/teacher/exams/<int:exam_id>', methods=['DELETE'])
+    def teacher_delete_exam(exam_id):
+        try:
+            teacher = _current_teacher()
+            if not teacher:
+                return jsonify(message='not authenticated'), 401
+            exam = Exam.query.filter_by(id=exam_id, created_by=teacher.id).first()
+            if not exam:
+                return jsonify(message='exam not found'), 404
+            Question.query.filter_by(exam_id=exam.id).delete()
+            ExamStudent.query.filter_by(exam_id=exam.id).delete()
+            db.session.delete(exam)
+            db.session.commit()
+            return jsonify(message='deleted')
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Teacher delete exam error: {e}")
+            return jsonify(message='failed to delete exam'), 500
+
+    @app.route('/api/teacher/exams/<int:exam_id>/report', methods=['GET'])
+    def teacher_exam_report(exam_id):
+        try:
+            teacher = _current_teacher()
+            if not teacher:
+                return jsonify(message='not authenticated'), 401
+            exam = Exam.query.filter_by(id=exam_id, created_by=teacher.id).first()
+            if not exam:
+                return jsonify(message='exam not found'), 404
+
+            questions = Question.query.filter_by(exam_id=exam.id).order_by(Question.id.asc()).all()
+            q_payload = [
+                {
+                    'question': q.question_text,
+                    'teacherAnswer': q.correct_answer,
+                    'type': (getattr(q, 'question_type', None) or 'direct')
+                }
+                for q in questions
+            ]
+
+            rows = []
+            links = ExamStudent.query.filter_by(exam_id=exam.id).all()
+            for link in links:
+                student = Student.query.get(link.student_id)
+                if not student:
+                    continue
+                answers = link.answers or {}
+                student_answers = answers.get('studentAnswers') or []
+                question_results = answers.get('questionResults') or []
+                submitted = link.status == 'completed'
+                rows.append({
+                    'student_roll': student.roll_number,
+                    'student_name': student.name,
+                    'submitted': submitted,
+                    'score': link.score or 0,
+                    'total_questions': len(q_payload),
+                    'questions': q_payload,
+                    'studentAnswers': student_answers,
+                    'questionResults': question_results,
+                    'missed': link.status == 'missed'
+                })
+            return jsonify(exam={'id': exam.id, 'name': exam.name}, rows=rows)
+        except Exception as e:
+            app.logger.error(f"Teacher exam report error: {e}")
+            return jsonify(message='failed to fetch report'), 500
+
+    @app.route('/api/teacher/results/clear', methods=['POST'])
+    def teacher_clear_results():
+        try:
+            teacher = _current_teacher()
+            if not teacher:
+                return jsonify(message='not authenticated'), 401
+            exam_ids = [e.id for e in Exam.query.filter_by(created_by=teacher.id).all()]
+            if exam_ids:
+                links = ExamStudent.query.filter(ExamStudent.exam_id.in_(exam_ids)).all()
+                for link in links:
+                    link.status = 'not-attempted'
+                    link.score = 0
+                    link.answers = []
+                    link.start_time = None
+                    link.end_time = None
+                db.session.commit()
+            return jsonify(message='cleared')
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Teacher clear results error: {e}")
+            return jsonify(message='failed to clear results'), 500
+
+    @app.route('/api/student/exams', methods=['GET'])
+    def student_get_exams():
+        try:
+            student = _current_student()
+            if not student:
+                return jsonify(message='not authenticated'), 401
+
+            links = ExamStudent.query.filter_by(student_id=student.id).all()
+            out = []
+            for link in links:
+                exam = Exam.query.get(link.exam_id)
+                if not exam:
+                    continue
+                _refresh_exam_status(exam)
+                out.append({
+                    'id': exam.id,
+                    'name': exam.name,
+                    'startTime': exam.start_time.isoformat() if exam.start_time else None,
+                    'endTime': exam.end_time.isoformat() if exam.end_time else None,
+                    'duration': exam.duration,
+                    'active': bool(exam.status_active),
+                    'submitted': link.status == 'completed',
+                    'missed': link.status == 'missed',
+                    'score': link.score,
+                    'questions': []
+                })
+            db.session.commit()
+            return jsonify(exams=out)
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Student get exams error: {e}")
+            return jsonify(message='failed to fetch exams'), 500
+
+    @app.route('/api/student/exams/<int:exam_id>/start', methods=['POST'])
+    def student_start_exam(exam_id):
+        try:
+            student = _current_student()
+            if not student:
+                return jsonify(message='not authenticated'), 401
+            link = ExamStudent.query.filter_by(exam_id=exam_id, student_id=student.id).first()
+            exam = Exam.query.get(exam_id)
+            if not exam or not link:
+                return jsonify(message='exam not found'), 404
+
+            _refresh_exam_status(exam)
+            if not exam.status_active:
+                db.session.commit()
+                return jsonify(message='exam is not active'), 400
+
+            if link.status == 'completed':
+                db.session.commit()
+                return jsonify(message='already submitted'), 400
+
+            if not link.start_time:
+                link.start_time = app_now()
+                link.status = 'in-progress'
+            questions = Question.query.filter_by(exam_id=exam.id).order_by(Question.id.asc()).all()
+            db.session.commit()
+            return jsonify(exam={
+                'id': exam.id,
+                'name': exam.name,
+                'startTime': exam.start_time.isoformat() if exam.start_time else None,
+                'endTime': exam.end_time.isoformat() if exam.end_time else None,
+                'duration': exam.duration,
+                'questions': [
+                    {
+                        'id': q.id,
+                        'question': q.question_text,
+                        'teacherAnswer': q.correct_answer,
+                        'type': (getattr(q, 'question_type', None) or 'direct')
+                    }
+                    for q in questions
+                ]
+            })
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Student start exam error: {e}")
+            return jsonify(message='failed to start exam'), 500
+
+    @app.route('/api/student/exams/<int:exam_id>/submit', methods=['POST'])
+    def student_submit_exam(exam_id):
+        try:
+            student = _current_student()
+            if not student:
+                return jsonify(message='not authenticated'), 401
+            link = ExamStudent.query.filter_by(exam_id=exam_id, student_id=student.id).first()
+            if not link:
+                return jsonify(message='exam not found'), 404
+
+            data = request.get_json() or {}
+            link.status = 'completed'
+            link.score = int(data.get('score') or 0)
+            link.answers = {
+                'studentAnswers': data.get('studentAnswers') or [],
+                'questionResults': data.get('questionResults') or []
+            }
+            link.end_time = app_now()
+            db.session.commit()
+            return jsonify(message='submitted')
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Student submit exam error: {e}")
+            return jsonify(message='failed to submit exam'), 500
+
+    @app.route('/api/student/results', methods=['GET'])
+    def student_results():
+        try:
+            student = _current_student()
+            if not student:
+                return jsonify(message='not authenticated'), 401
+            links = ExamStudent.query.filter_by(student_id=student.id).all()
+            rows = []
+            for link in links:
+                if link.status not in ('completed', 'missed'):
+                    continue
+                exam = Exam.query.get(link.exam_id)
+                if not exam:
+                    continue
+                questions = Question.query.filter_by(exam_id=exam.id).order_by(Question.id.asc()).all()
+                answers = link.answers or {}
+                rows.append({
+                    'id': exam.id,
+                    'name': exam.name,
+                    'startTime': exam.start_time.isoformat() if exam.start_time else None,
+                    'endTime': exam.end_time.isoformat() if exam.end_time else None,
+                    'duration': exam.duration,
+                    'submitted': link.status == 'completed',
+                    'missed': link.status == 'missed',
+                    'score': link.score or 0,
+                    'questions': [
+                        {
+                            'question': q.question_text,
+                            'teacherAnswer': q.correct_answer,
+                            'type': (getattr(q, 'question_type', None) or 'direct')
+                        }
+                        for q in questions
+                    ],
+                    'studentAnswers': answers.get('studentAnswers') or [],
+                    'questionResults': answers.get('questionResults') or []
+                })
+            return jsonify(results=rows)
+        except Exception as e:
+            app.logger.error(f"Student results error: {e}")
+            return jsonify(message='failed to fetch results'), 500
+
+    @app.route('/api/student/results/clear', methods=['POST'])
+    def student_clear_results():
+        try:
+            student = _current_student()
+            if not student:
+                return jsonify(message='not authenticated'), 401
+            links = ExamStudent.query.filter_by(student_id=student.id).all()
+            for link in links:
+                link.status = 'not-attempted'
+                link.score = 0
+                link.answers = []
+                link.start_time = None
+                link.end_time = None
+            db.session.commit()
+            return jsonify(message='cleared')
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Student clear results error: {e}")
+            return jsonify(message='failed to clear results'), 500
+
     return app
 
 
@@ -572,6 +1086,16 @@ def create_tables(app=None):
                         conn.execute(text('ALTER TABLE student ADD COLUMN semester VARCHAR(20)'))
                     if 'photo' not in cols:
                         conn.execute(text('ALTER TABLE student ADD COLUMN photo TEXT'))
+            if 'teacher' in insp.get_table_names():
+                tcols = {c['name'] for c in insp.get_columns('teacher')}
+                with db.engine.connect() as conn:
+                    if 'photo' not in tcols:
+                        conn.execute(text('ALTER TABLE teacher ADD COLUMN photo TEXT'))
+            if 'question' in insp.get_table_names():
+                qcols = {c['name'] for c in insp.get_columns('question')}
+                with db.engine.connect() as conn:
+                    if 'question_type' not in qcols:
+                        conn.execute(text("ALTER TABLE question ADD COLUMN question_type VARCHAR(30) DEFAULT 'direct'"))
         except Exception as exc:
             app.logger.warning(f"could not ensure student columns: {exc}")
 
