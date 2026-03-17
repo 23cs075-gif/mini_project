@@ -30,20 +30,26 @@ def evaluate_code_question(question, correct_blank, student_answer):
     student_n = normalize(student_answer)
     answer_n = normalize(correct_blank)
 
-    # Normalize question by removing blank
-    question_prefix = normalize(re.sub(r"_+", "", question, count=1))
+    # Split question at blank → prefix (before blank) and suffix (after blank)
+    parts = re.split(r"_+", question, maxsplit=1)
+    prefix_n = normalize(parts[0]) if parts else ""
+    suffix_n = normalize(parts[1]) if len(parts) > 1 else ""
 
-    # Case 1: student wrote only answer
-    if student_n == answer_n:
-        return True
+    # Strip prefix from the start of student answer (if present)
+    stripped = student_n
+    if prefix_n and stripped.startswith(prefix_n):
+        stripped = stripped[len(prefix_n):]
 
-    # Case 2: student wrote full correct statement
-    if student_n.startswith(question_prefix):
-        extracted = student_n[len(question_prefix):]
-        return extracted == answer_n
+    # Strip suffix from the end of student answer:
+    # Try longest possible suffix match first, then progressively shorter
+    if suffix_n:
+        for length in range(len(suffix_n), 0, -1):
+            if stripped.endswith(suffix_n[:length]):
+                stripped = stripped[:-length]
+                break
 
-    # Anything else → wrong
-    return False
+    # Compare the stripped remainder with the correct answer
+    return stripped == answer_n
 
 
 def evaluate_fill_blank(question, teacher_answer, student_answer):
