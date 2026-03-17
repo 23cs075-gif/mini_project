@@ -20,31 +20,20 @@ def normalize(code: str) -> str:
 
 def evaluate_code_question(question, correct_blank, student_answer):
     student_n = normalize(student_answer)
-    blank_n = normalize(correct_blank)
+    answer_n = normalize(correct_blank)
 
-    match = re.search(r'[_.]{2,}', question)
+    if student_n == answer_n:
+        return True
+
+    match = re.search(r"_+", question)
     if not match:
-        raise ValueError("Question must contain ___ or .....")
-
-    placeholder = match.group()
-    before, after = question.split(placeholder, 1)
-
-    before_n = normalize(before)
-    after_n = normalize(after)
-
-    idx = student_n.find(blank_n)
-    if idx == -1:
         return False
 
-    student_before = student_n[:idx]
-    student_after = student_n[idx + len(blank_n):]
+    before = normalize(question[:match.start()])
+    after = normalize(question[match.end():])
+    expected_full = before + answer_n + after
 
-    if student_before and not before_n.endswith(student_before):
-        return False
-    if student_after and not after_n.startswith(student_after):
-        return False
-
-    return True
+    return student_n == expected_full
 
 
 # ----------------------------
@@ -100,8 +89,8 @@ def evaluate_semantic(question, teacher_answer, student_answer, sim_threshold=0.
     teacher_answer = teacher_answer.lower().strip()
     student_answer = student_answer.lower().strip()
 
-    teacher_full = question.replace("____", teacher_answer)
-    student_full = question.replace("____", student_answer)
+    teacher_full = re.sub(r"_+", teacher_answer, question, count=1)
+    student_full = re.sub(r"_+", student_answer, question, count=1)
 
     # ---- NLI CHECK ----
     nli_input = f"{teacher_full} </s></s> {student_full}"

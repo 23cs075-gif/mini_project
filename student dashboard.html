@@ -391,8 +391,14 @@
     let allLoadedExams = []; // Global array to store combined exams from both sources
     let examTimerInterval = null; // Timer for exam countdown
     let currentExamIndex = null; // Track current exam being taken
+    let isExamInProgress = false; // Prevent UI refresh from closing active exam session
     
     function loadStudentExams() {
+        if (isExamInProgress) {
+            console.log('⏸️ Skipping exam list reload because an exam is currently in progress');
+            return;
+        }
+
     // Use the actual logged-in student's ID
     if (!currentStudentId) {
         console.error('❌ Student ID not loaded yet');
@@ -708,6 +714,7 @@ function startStudentExam(examIndex) {
     
     // Store current exam index for timer reference
     currentExamIndex = examIndex;
+    isExamInProgress = true;
     
     const container = document.getElementById('exam-list'); // Use correct container
 
@@ -1062,6 +1069,9 @@ let isCorrect = false;
     }
 
     if (examTimerInterval) clearInterval(examTimerInterval);
+    examTimerInterval = null;
+    currentExamIndex = null;
+    isExamInProgress = false;
     loadStudentExams();
 }
 async function submitStudentExam(examIndex) {
@@ -1144,6 +1154,9 @@ async function submitStudentExam(examIndex) {
         localStorage.setItem(`student_${currentStudentId}_exams`, JSON.stringify(studentExams));
     }
 
+    examTimerInterval = null;
+    currentExamIndex = null;
+    isExamInProgress = false;
     loadStudentExams();
 }
 async function logout(){
@@ -1335,6 +1348,15 @@ async function logout(){
         };
     });
 })();
+
+// AUTO-REFRESH EXAM LIST ON STUDENT SIDE
+// Periodically reload the exam list to catch newly activated exams
+setInterval(function(){
+    if(currentStudentId && !isExamInProgress){
+        console.log('🔄 Auto-refreshing student exam list...');
+        try { loadStudentExams(); } catch(err){ console.warn('Auto-refresh failed:', err); }
+    }
+}, 30000); // Check every 30 seconds
 </script>
 
 </body>

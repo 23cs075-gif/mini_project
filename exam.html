@@ -244,6 +244,13 @@ document.getElementById("setExamBtn").addEventListener("click", () => {
             return;
         }
 
+        // For fill-style and code question types, question must contain blank placeholder(s)
+        // (allow any number of underscores: _, __, ___, ...)
+        if ((t === 'direct' || t === 'english' || t === 'code') && !/_+/.test(q)) {
+            alert(`Q${i}: This is a fill-in-the-blank type question. Question should contain blank space using underscores (_).`);
+            return;
+        }
+
         questions.push({question: q, teacherAnswer: a, type: t});
     }
 

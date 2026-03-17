@@ -182,13 +182,20 @@
                 </div>
 
                 <!-- Select Students -->
-                <!-- Department Filter -->
-<div style="margin-bottom:10px;">
-    <label style="font-weight:600;">Filter by Department:</label>
-    <select id="departmentFilter" onchange="filterStudents()" style="padding:8px; border:1px solid #ddd; border-radius:6px;">
-        <option value="all">All Departments</option>
-        <!-- Departments will be populated dynamically -->
-    </select>
+                <!-- Filters: Batch (email prefix) + Department -->
+<div style="display:flex; gap:15px; flex-wrap:wrap; margin-bottom:10px;">
+    <div>
+        <label style="font-weight:600;">Filter by Batch:</label><br>
+        <select id="batchFilter" onchange="filterStudents()" style="padding:8px; border:1px solid #ddd; border-radius:6px; margin-top:4px;">
+            <option value="all">All Batches</option>
+        </select>
+    </div>
+    <div>
+        <label style="font-weight:600;">Filter by Department:</label><br>
+        <select id="departmentFilter" onchange="filterStudents()" style="padding:8px; border:1px solid #ddd; border-radius:6px; margin-top:4px;">
+            <option value="all">All Departments</option>
+        </select>
+    </div>
 </div>
 
 <!-- Student checkboxes container -->
@@ -301,17 +308,17 @@ function updateCreateBtnState(){
     if(btn) btn.disabled = !valid;
 }
 
-// Load students (optionally filtered by department) and render checkboxes
-async function loadStudents(department='all') {
+// Load students filtered by batch (email prefix) and/or department
+async function loadStudents(department='all', batch='all') {
     try {
-        const res = await fetch(`/api/teacher/students_for_exam?department=${department}`);
+        const res = await fetch(`/api/teacher/students_for_exam?department=${department}&batch=${batch}`);
         const data = await res.json();
         allStudents = data.students || [];
         renderStudentCheckboxes();
 
-        // populate departments only once
+        // populate filter dropdowns only once (on initial load)
         if (!departmentsPopulated) {
-            populateDepartmentFilter();
+            populateFilters();
             departmentsPopulated = true;
         }
     } catch (err) {
@@ -324,12 +331,20 @@ function renderStudentCheckboxes() {
     const container = document.getElementById('studentCheckboxes');
     container.innerHTML = '';
 
+    if(allStudents.length === 0){
+        container.innerHTML = '<p style="color:#999; font-size:13px;">No students match the selected filters.</p>';
+        updateSelectedCount();
+        updateCreateBtnState();
+        return;
+    }
+
     allStudents.forEach(student => {
         const div = document.createElement('div');
         div.style.marginBottom = '5px';
+        const groupLabel = student.email_prefix ? `[${student.email_prefix.toUpperCase()}-${student.department || ''}]` : '';
         div.innerHTML = `
             <input class="student-checkbox" data-name="${student.name}" data-roll="${student.roll_number}" type="checkbox" id="student_${student.roll_number}" value="${student.roll_number}" onchange="toggleStudent('${student.roll_number}')" ${selectedStudents.has(student.roll_number) ? 'checked' : ''}>
-            <label for="student_${student.roll_number}" style="margin-left:8px; cursor:pointer;">${student.name} (${student.roll_number})</label>
+            <label for="student_${student.roll_number}" style="margin-left:8px; cursor:pointer;">${student.name} (${student.roll_number}) <span style="color:#888; font-size:12px;">${groupLabel}</span></label>
         `;
         container.appendChild(div);
     });
@@ -375,10 +390,11 @@ function toggleAllStudents() {
     updateCreateBtnState();
 }
 
-// Filter students by department
+// Filter students by batch (email prefix) and department
 function filterStudents() {
-    const dept = document.getElementById('departmentFilter').value;
-    loadStudents(dept);
+    const dept  = document.getElementById('departmentFilter').value;
+    const batch = document.getElementById('batchFilter').value;
+    loadStudents(dept, batch);
 }
 
 // Update selected count display
@@ -386,11 +402,28 @@ function updateSelectedCount() {
     document.getElementById('selectedCount').innerText = `${selectedStudents.size} students selected`;
 }
 
-// Populate department filter once
-function populateDepartmentFilter() {
-    const filter = document.getElementById('departmentFilter');
-    const depts = [...new Set(allStudents.map(s => s.department))];
-    filter.innerHTML = `<option value="all">All Departments</option>` + depts.map(d => `<option value="${d}">${d}</option>`).join('');
+// Populate both batch and department filter dropdowns from full student list
+async function populateFilters() {
+    // Fetch all students once (no filter) to populate dropdowns
+    try {
+        const res = await fetch('/api/teacher/students_for_exam?department=all&batch=all');
+        const data = await res.json();
+        const all = data.students || [];
+
+        // Batch filter - unique email prefixes
+        const batchFilter = document.getElementById('batchFilter');
+        const batches = [...new Set(all.map(s => s.email_prefix).filter(Boolean))].sort();
+        batchFilter.innerHTML = `<option value="all">All Batches</option>` +
+            batches.map(b => `<option value="${b}">${b.toUpperCase()}</option>`).join('');
+
+        // Department filter - unique departments
+        const deptFilter = document.getElementById('departmentFilter');
+        const depts = [...new Set(all.map(s => s.department).filter(Boolean))].sort();
+        deptFilter.innerHTML = `<option value="all">All Departments</option>` +
+            depts.map(d => `<option value="${d}">${d}</option>`).join('');
+    } catch(err) {
+        console.error('Failed to populate filters:', err);
+    }
 }
 
 // Initial load
@@ -465,6 +498,12 @@ function showPage(pageId, element){
         });
         element.classList.add('active');
     }
+    
+    // When switching to exams page, update the list (which will also check for auto-activation)
+    if(pageId === 'exams'){
+        console.log('📋 Teacher navigated to Exams section - updating exam list');
+        setTimeout(() => updateExamsList(), 100);
+    }
 }
 
 // EXAM TAB SWITCHING
@@ -476,6 +515,12 @@ function switchExamTab(tab){
     // Show selected tab
     document.getElementById('exam-' + tab).classList.add('active');
     document.getElementById('tab-' + tab).classList.add('active');
+    
+    // Refresh exam list and check for auto-activation when viewing exams
+    if(tab === 'view'){
+        console.log('👀 User switched to View Exams tab - checking for auto-activation');
+        updateExamsList();
+    }
     
     // Refresh exam dropdown when switching to report tab
     if(tab === 'report'){
@@ -570,8 +615,45 @@ const newExam = {
 }
 
 
+// AUTO-ACTIVATION/DEACTIVATION OF EXAMS
+// This function automatically activates exams when start time is reached
+// and deactivates them when end time is exceeded
+function checkAndAutoActivateExams(){
+    const now = new Date();
+    let hasChanges = false;
+    
+    examsData.forEach(exam => {
+        if(!exam.startTime || !exam.endTime) return; // Skip if times not set
+        
+        const examStartTime = new Date(exam.startTime);
+        const examEndTime = new Date(exam.endTime);
+        
+        // Auto-activate: if current time >= start time and <= end time, activate exam
+        if(now >= examStartTime && now <= examEndTime && exam.active !== true){
+            console.log(`✅ AUTO-ACTIVATING EXAM: ${exam.name}`);
+            exam.active = true;
+            hasChanges = true;
+        }
+        
+        // Auto-deactivate: if current time > end time, deactivate exam
+        if(now > examEndTime && exam.active === true){
+            console.log(`🔴 AUTO-DEACTIVATING EXAM: ${exam.name}`);
+            exam.active = false;
+            hasChanges = true;
+        }
+    });
+    
+    // If any exams were auto-activated/deactivated, save and refresh UI
+    if(hasChanges){
+        localStorage.setItem('examsData', JSON.stringify(examsData));
+    }
+}
+
 // UPDATE EXAMS LIST VIEW
 function updateExamsList(){
+    // Check and auto-activate/deactivate exams before updating the list
+    checkAndAutoActivateExams();
+    
     // If teacher cleared UI, show cleared message until new exam is created
     try {
         if (localStorage.getItem('teacher_cleared_ui') === 'true'){
@@ -602,11 +684,19 @@ function updateExamsList(){
             // Inactive exam - only activation button
             let activateBtn = `<button onclick="activateExam(${exam.id})" style="background:#27ae60; color:white; padding:8px 15px; border:none; border-radius:6px; cursor:pointer; font-weight:600; white-space:nowrap;">Activate</button>`;
             let statusText = 'Inactive';
+            let scheduleBtn = '';
+            let extendBtn = '';
             
             // Disable activation if before start time
             if(isBeforeStart){
                 activateBtn = `<button disabled style="background:#ccc; color:#666; padding:8px 15px; border:none; border-radius:6px; cursor:not-allowed; font-weight:600; white-space:nowrap;" title="Cannot activate before exam start time">Activate</button>`;
                 statusText = 'Inactive (Starts ' + examStartTime.toLocaleString() + ')';
+                scheduleBtn = `<button onclick="editNonStartedExamSchedule(${exam.id})" style="background:#2980b9; color:white; padding:8px 15px; border:none; border-radius:6px; cursor:pointer; font-weight:600; white-space:nowrap;">Edit Schedule</button>`;
+            }
+
+            // allow end-time extension while exam window is ongoing
+            if(!isBeforeStart && !isAfterEnd){
+                extendBtn = `<button onclick="extendOngoingExamEndTime(${exam.id})" style="background:#8e44ad; color:white; padding:8px 15px; border:none; border-radius:6px; cursor:pointer; font-weight:600; white-space:nowrap;">Extend End Time</button>`;
             }
             
             // Hide if after end time
@@ -622,12 +712,17 @@ function updateExamsList(){
                     <p style="margin:5px 0 0 0; color:#999; font-size:13px;">Start: ${examStartTime.toLocaleString()} | End: ${examEndTime.toLocaleString()} | Duration: ${exam.duration} mins</p>
                     <p style="margin:5px 0 0 0; color:#999; font-size:12px;">Status: ${statusText}</p>
                 </div>
-                ${activateBtn}
+                <div style="display:flex; gap:8px; white-space:nowrap; flex-wrap:wrap; justify-content:flex-end;">
+                    ${activateBtn}
+                    ${scheduleBtn}
+                    ${extendBtn}
+                </div>
             </div>`;
         } else {
             // Active exam - show all details and action buttons
             let actionButtons = `
                 <div style="display:flex; gap:8px; white-space:nowrap;">
+                    <button onclick="extendOngoingExamEndTime(${exam.id})" style="background:#8e44ad; color:white; padding:8px 12px; border:none; border-radius:6px; cursor:pointer; font-weight:600;">Extend End Time</button>
                     <button onclick="deactivateExam(${exam.id})" style="background:#f39c12; color:white; padding:8px 12px; border:none; border-radius:6px; cursor:pointer; font-weight:600;">Deactivate</button>
                     <button onclick="deleteExam(${exam.id})" style="background:#ff6b6b; color:white; padding:8px 12px; border:none; border-radius:6px; cursor:pointer; font-weight:600;">Delete</button>
                 </div>`;
@@ -734,6 +829,126 @@ function deactivateExam(examId){
     updateExamsList();
     populateExamDropdown();
     alert('✓ Exam deactivated successfully!');
+}
+
+function syncExamTimeToAssignedStudents(exam){
+    if(!exam || !Array.isArray(exam.students)) return;
+
+    exam.students.forEach(student => {
+        const studentKey = student.roll_number || student.id;
+        if(!studentKey) return;
+
+        const storageKey = `student_${studentKey}_exams`;
+        const studentExams = JSON.parse(localStorage.getItem(storageKey) || '[]');
+        const idx = studentExams.findIndex(e => e.id === exam.id);
+
+        if(idx !== -1){
+            studentExams[idx].startTime = exam.startTime;
+            studentExams[idx].endTime = exam.endTime;
+            studentExams[idx].duration = exam.duration;
+            localStorage.setItem(storageKey, JSON.stringify(studentExams));
+        }
+    });
+}
+
+function extendOngoingExamEndTime(examId){
+    const teacher = JSON.parse(localStorage.getItem('loggedTeacher'));
+    const exam = examsData.find(e => e.id === examId);
+
+    if(!exam || exam.teacherId !== teacher?.username){
+        alert('❌ You are not allowed to update this exam.');
+        return;
+    }
+
+    const now = new Date();
+    const examStartTime = new Date(exam.startTime);
+    const examEndTime = new Date(exam.endTime);
+
+    if(now < examStartTime || now > examEndTime){
+        alert('❌ End time can be extended only for an ongoing exam.');
+        return;
+    }
+
+    const newEndInput = prompt('Enter NEW end time (YYYY-MM-DDTHH:MM)', exam.endTime);
+    if(!newEndInput) return;
+
+    const newEndTime = new Date(newEndInput);
+    if(Number.isNaN(newEndTime.getTime())){
+        alert('❌ Invalid date format. Example: 2026-03-17T14:30');
+        return;
+    }
+
+    if(newEndTime <= examEndTime){
+        alert('❌ New end time must be later than current end time.');
+        return;
+    }
+
+    if(newEndTime <= now){
+        alert('❌ New end time must be in the future.');
+        return;
+    }
+
+    exam.endTime = newEndInput;
+    exam.duration = Math.max(1, Math.ceil((newEndTime - examStartTime) / (1000 * 60)));
+
+    syncExamTimeToAssignedStudents(exam);
+    localStorage.setItem('examsData', JSON.stringify(examsData));
+    updateExamsList();
+    populateExamDropdown();
+    alert('✓ Exam end time extended successfully!');
+}
+
+function editNonStartedExamSchedule(examId){
+    const teacher = JSON.parse(localStorage.getItem('loggedTeacher'));
+    const exam = examsData.find(e => e.id === examId);
+
+    if(!exam || exam.teacherId !== teacher?.username){
+        alert('❌ You are not allowed to update this exam.');
+        return;
+    }
+
+    const now = new Date();
+    const examStartTime = new Date(exam.startTime);
+
+    if(now >= examStartTime){
+        alert('❌ Start/End can be edited only before exam starts.');
+        return;
+    }
+
+    const newStartInput = prompt('Enter NEW start time (YYYY-MM-DDTHH:MM)', exam.startTime);
+    if(!newStartInput) return;
+
+    const newEndInput = prompt('Enter NEW end time (YYYY-MM-DDTHH:MM)', exam.endTime);
+    if(!newEndInput) return;
+
+    const newStartTime = new Date(newStartInput);
+    const newEndTime = new Date(newEndInput);
+
+    if(Number.isNaN(newStartTime.getTime()) || Number.isNaN(newEndTime.getTime())){
+        alert('❌ Invalid date format. Example: 2026-03-17T10:30');
+        return;
+    }
+
+    if(newStartTime <= now){
+        alert('❌ New start time must be in the future.');
+        return;
+    }
+
+    if(newEndTime <= newStartTime){
+        alert('❌ End time must be after start time.');
+        return;
+    }
+
+    exam.startTime = newStartInput;
+    exam.endTime = newEndInput;
+    exam.duration = Math.max(1, Math.ceil((newEndTime - newStartTime) / (1000 * 60)));
+    exam.active = false;
+
+    syncExamTimeToAssignedStudents(exam);
+    localStorage.setItem('examsData', JSON.stringify(examsData));
+    updateExamsList();
+    populateExamDropdown();
+    alert('✓ Exam schedule updated successfully!');
 }
 // EXAM REPORT
 function loadExamReport(){
@@ -1141,6 +1356,17 @@ async function loadStudentsFromBackend() {
         console.error("Error loading students:", error);
     }
 }
+
+// PERIODIC AUTO-ACTIVATION CHECK - runs every 30 seconds
+setInterval(function(){
+    console.log('🔄 [Auto-Check] Checking for exams that need auto-activation/deactivation...');
+    checkAndAutoActivateExams();
+    // Reload the exams list display if any changes were made
+    if(document.getElementById('examsListContainer')){
+        updateExamsList();
+    }
+}, 30000);
+
 // previously used helper to navigate to exam page; no longer referenced
 // function openExamPage() {
 //     // Optional: validate exam creation fields first

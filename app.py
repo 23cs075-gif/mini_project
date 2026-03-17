@@ -28,9 +28,22 @@ def normalize(code: str) -> str:
 
 def evaluate_code_question(question, correct_blank, student_answer):
     student_n = normalize(student_answer)
-    blank_n = normalize(correct_blank)
+    answer_n = normalize(correct_blank)
 
-    return blank_n in student_n
+    # Normalize question by removing blank
+    question_prefix = normalize(re.sub(r"_+", "", question, count=1))
+
+    # Case 1: student wrote only answer
+    if student_n == answer_n:
+        return True
+
+    # Case 2: student wrote full correct statement
+    if student_n.startswith(question_prefix):
+        extracted = student_n[len(question_prefix):]
+        return extracted == answer_n
+
+    # Anything else → wrong
+    return False
 
 
 def evaluate_fill_blank(question, teacher_answer, student_answer):
@@ -38,9 +51,8 @@ def evaluate_fill_blank(question, teacher_answer, student_answer):
 
 
 def evaluate_semantic(question, teacher_answer, student_answer, sim_threshold=0.65):
-
-    teacher_full = question.replace("____", teacher_answer)
-    student_full = question.replace("____", student_answer)
+    teacher_full = re.sub(r"_+", teacher_answer, question, count=1)
+    student_full = re.sub(r"_+", student_answer, question, count=1)
 
     nli_input = f"{teacher_full} </s></s> {student_full}"
     nli_result = nli(nli_input)[0]
@@ -169,21 +181,28 @@ def create_app():
             if not teacher:
                 return jsonify(message='not authenticated'), 401
 
-            dept = request.args.get('department', 'all')
+            dept  = request.args.get('department', 'all')
+            batch = request.args.get('batch', 'all')  # first 2 chars of email
 
-            if dept == 'all':
-                students = Student.query.all()
-            else:
-                students = Student.query.filter_by(department=dept).all()
+            query = Student.query
+            if dept != 'all':
+                query = query.filter_by(department=dept)
+            students = query.all()
+
+            # filter by email prefix (batch) if specified
+            if batch != 'all':
+                students = [s for s in students if (s.email or '').lower().startswith(batch.lower())]
 
             result = []
             for s in students:
+                email_prefix = (s.email or '')[:2].lower()
                 result.append({
                     "id": s.id,
                     "name": s.name,
                     "roll_number": s.roll_number,
                     "department": s.department,
-                    "semester": s.semester
+                    "semester": s.semester,
+                    "email_prefix": email_prefix
                     })
             return jsonify(students=result)
         except Exception as e:
