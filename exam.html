@@ -134,6 +134,18 @@
 
     <div id="questionsContainer"></div>
 
+    <div class="question-box">
+        <h3>Exam Schedule</h3>
+        <label>Exam Start Time:</label>
+        <input type="datetime-local" id="examStartTime" required>
+
+        <label>Exam End Time:</label>
+        <input type="datetime-local" id="examEndTime" required>
+
+        <label>Individual Duration (minutes):</label>
+        <input type="number" id="examDuration" min="1" placeholder="e.g., 20" required>
+    </div>
+
     <div class="button-group">
         <button class="btn-primary" id="setExamBtn">Set Exam</button>
     </div>
@@ -155,6 +167,14 @@ let examData = {
 function getQueryParam(name) {
     const params = new URLSearchParams(window.location.search);
     return params.get(name);
+}
+
+function toDatetimeLocalValue(value) {
+    if (!value) return '';
+    const dt = new Date(value);
+    if (Number.isNaN(dt.getTime())) return '';
+    const local = new Date(dt.getTime() - dt.getTimezoneOffset() * 60000);
+    return local.toISOString().slice(0, 16);
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
@@ -185,8 +205,12 @@ window.addEventListener('DOMContentLoaded', async () => {
         examData.duration = exam.duration;
         examData.students = exam.students || [];
 
+        document.getElementById('examStartTime').value = toDatetimeLocalValue(examData.startTime);
+        document.getElementById('examEndTime').value = toDatetimeLocalValue(examData.endTime);
+        document.getElementById('examDuration').value = examData.duration || '';
+
         const infoDiv = document.getElementById('examInfo');
-        infoDiv.textContent = `Exam: ${examData.name} — Start: ${examData.startTime} — Duration: ${examData.duration} mins — Students: ${examData.students.length}`;
+        infoDiv.textContent = `Exam: ${examData.name} — Students: ${examData.students.length}`;
     } catch (err) {
         console.error('Failed to load exam:', err);
         alert('Failed to load exam');
@@ -230,17 +254,21 @@ document.getElementById("setExamBtn").addEventListener("click", async () => {
         return;
     }
 
-    // use preloaded exam name/start if available
-    let examName = examData.name;
-    if(!examName){
-        examName = prompt("Enter exam name:");
-        if(!examName){ alert("Exam name required!"); return; }
-    }
+    const examStart = document.getElementById('examStartTime').value;
+    const examEnd = document.getElementById('examEndTime').value;
+    const examDuration = parseInt(document.getElementById('examDuration').value, 10);
 
-    let examStart = examData.startTime;
-    if(!examStart){
-        examStart = prompt("Enter exam start date-time (yyyy-mm-dd hh:mm):");
-        if(!examStart){ alert("Exam start time required!"); return; }
+    if (!examStart || !examEnd || !examDuration) {
+        alert('Please set start time, end time and individual duration.');
+        return;
+    }
+    if (new Date(examEnd) <= new Date(examStart)) {
+        alert('End time must be after start time.');
+        return;
+    }
+    if (examDuration <= 0) {
+        alert('Individual duration must be greater than 0 minutes.');
+        return;
     }
 
     let questions = [];
@@ -279,7 +307,12 @@ document.getElementById("setExamBtn").addEventListener("click", async () => {
             method: 'POST',
             credentials: 'same-origin',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ questions })
+            body: JSON.stringify({
+                questions,
+                startTime: examStart,
+                endTime: examEnd,
+                duration: examDuration
+            })
         });
         const data = await res.json();
         if (!res.ok) {

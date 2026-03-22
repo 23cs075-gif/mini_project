@@ -638,17 +638,19 @@ def create_app():
 
             data = request.get_json() or {}
             student_roll_numbers = data.get('student_roll_numbers') or []
+            exam_name = (data.get('name') or '').strip()
+            if not exam_name:
+                return jsonify(message='exam name required'), 400
+
             exam = Exam(
-                name=(data.get('name') or '').strip(),
-                start_time=_to_dt(data.get('startTime')),
-                end_time=_to_dt(data.get('endTime')),
-                duration=int(data.get('duration') or 0),
+                name=exam_name,
+                start_time=None,
+                end_time=None,
+                duration=0,
                 created_by=teacher.id,
                 status_active=False,
                 questions_count=0,
             )
-            if not exam.name or not exam.start_time or not exam.end_time or exam.duration <= 0:
-                return jsonify(message='invalid exam payload'), 400
 
             db.session.add(exam)
             db.session.flush()
@@ -677,8 +679,14 @@ def create_app():
 
             data = request.get_json() or {}
             questions = data.get('questions') or []
+            schedule_start = _to_dt(data.get('startTime'))
+            schedule_end = _to_dt(data.get('endTime'))
+            schedule_duration = int(data.get('duration') or 0)
+
             if not isinstance(questions, list) or len(questions) == 0:
                 return jsonify(message='questions required'), 400
+            if not schedule_start or not schedule_end or schedule_end <= schedule_start or schedule_duration <= 0:
+                return jsonify(message='valid start/end time and individual duration are required'), 400
 
             Question.query.filter_by(exam_id=exam.id).delete()
             for item in questions:
@@ -690,6 +698,10 @@ def create_app():
                 ))
 
             exam.questions_count = len(questions)
+            exam.start_time = schedule_start
+            exam.end_time = schedule_end
+            exam.duration = schedule_duration
+            exam.status_active = False
             db.session.commit()
             return jsonify(message='saved')
         except Exception as e:
@@ -740,6 +752,15 @@ def create_app():
             exam = Exam.query.filter_by(id=exam_id, created_by=teacher.id).first()
             if not exam:
                 return jsonify(message='exam not found'), 404
+
+            now = app_now()
+            if not exam.start_time or not exam.end_time:
+                return jsonify(message='exam schedule not set'), 400
+            if now < exam.start_time:
+                return jsonify(message='exam not started yet'), 400
+            if now >= exam.end_time:
+                return jsonify(message='exam already ended; cannot extend'), 400
+
             data = request.get_json() or {}
             new_end = _to_dt(data.get('endTime'))
             if not new_end or (exam.end_time and new_end <= exam.end_time):

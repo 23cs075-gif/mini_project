@@ -161,7 +161,7 @@
         <div class="card">
             <h3 style="color:#5a0f1b; margin-bottom:15px;">All Exams</h3>
             <p style="background:#e8f4f8; padding:12px; border-radius:6px; border-left:4px solid #0066cc; margin-bottom:15px; font-size:13px;">
-                <b>📌 Note:</b> <span style="color:#333;">After creating an exam and setting questions on the question setup page, click "Activate" here to make it visible to assigned students.</span>
+                <b>📌 Note:</b> <span style="color:#333;">After creating an exam and setting questions + schedule, activation happens automatically at start time and deactivation at end time.</span>
             </p>
             <div id="examsListContainer">
                 <!-- Exams will be populated here -->
@@ -211,26 +211,9 @@
 </div>
 <p id="selectedCount" style="margin-top:8px; color:#666; font-size:13px;">0 students selected</p>
 
-                <!-- Exam Availability Times (Start & End Time) -->
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px;">
-                    <div>
-                        <label style="display:block; margin-bottom:8px; font-weight:600; color:#333;">Exam Start Time <span style="color:#ff6b6b;">*</span></label>
-                        <p style="font-size:12px; color:#666; margin-bottom:5px;">When students can start writing the exam</p>
-                        <input type="datetime-local" id="examStartTime" required style="width:100%; padding:12px; border:1px solid #ddd; border-radius:8px; font-size:14px;">
-                    </div>
-                    <div>
-                        <label style="display:block; margin-bottom:8px; font-weight:600; color:#333;">Exam End Time <span style="color:#ff6b6b;">*</span></label>
-                        <p style="font-size:12px; color:#666; margin-bottom:5px;">After this time, no new submissions allowed</p>
-                        <input type="datetime-local" id="examEndTime" required style="width:100%; padding:12px; border:1px solid #ddd; border-radius:8px; font-size:14px;">
-                    </div>
-                </div>
-
-                <!-- Exam Duration (Time to Complete) -->
-                <div>
-                    <label style="display:block; margin-bottom:8px; font-weight:600; color:#333;">Time Limit to Complete Exam (in minutes) <span style="color:#ff6b6b;">*</span></label>
-                    <p style="font-size:12px; color:#666; margin-bottom:5px;">Duration to complete exam once started (e.g., 20 mins)</p>
-                    <input type="number" id="examDuration" placeholder="20" min="1" required style="width:100%; padding:12px; border:1px solid #ddd; border-radius:8px; font-size:14px;">
-                </div>
+                <p style="background:#fff8e1; padding:12px; border-radius:6px; border-left:4px solid #f39c12; margin:0; font-size:13px; color:#333;">
+                    <b>📌 Next step:</b> Start time, end time, and individual exam duration will be set on the question setup page.
+                </p>
 
                 
 
@@ -297,12 +280,8 @@ let departmentsPopulated = false; // to ensure dropdown is populated only once
 // Validation: enable create button only when form is complete
 function updateCreateBtnState(){
     const examName = document.getElementById('examName')?.value.trim();
-    const startTime = document.getElementById('examStartTime')?.value;
-    const endTime = document.getElementById('examEndTime')?.value;
-    const duration = document.getElementById('examDuration')?.value;
     const hasStudents = selectedStudents.size > 0;
-    const timesValid = startTime && endTime && (new Date(startTime) < new Date(endTime));
-    const valid = examName && startTime && endTime && duration && hasStudents && timesValid;
+    const valid = examName && hasStudents;
     const btn = document.getElementById('createExamBtn');
     if(btn) btn.disabled = !valid;
 }
@@ -430,7 +409,7 @@ loadStudents();
 
 // ensure validation state is kept up-to-date when user interacts
 window.addEventListener('DOMContentLoaded', function(){
-    ['examName','examStartTime','examEndTime','examDuration'].forEach(id => {
+    ['examName'].forEach(id => {
         const el = document.getElementById(id);
         if(el) el.addEventListener('input', updateCreateBtnState);
     });
@@ -494,17 +473,10 @@ async function fetchTeacherExams(){
 
 async function createExam(){
     const examName = document.getElementById('examName').value.trim();
-    const startTime = document.getElementById('examStartTime').value;
-    const endTime = document.getElementById('examEndTime').value;
-    const duration = document.getElementById('examDuration').value;
     const studentRolls = Array.from(document.querySelectorAll('.student-checkbox:checked')).map(cb => cb.value);
 
-    if(!examName || !startTime || !endTime || !duration || studentRolls.length === 0){
-        alert('Please fill all exam fields and select students');
-        return;
-    }
-    if(new Date(startTime) >= new Date(endTime)){
-        alert('End time must be after start time');
+    if(!examName || studentRolls.length === 0){
+        alert('Please enter exam name and select students');
         return;
     }
 
@@ -515,9 +487,6 @@ async function createExam(){
             headers:{'Content-Type':'application/json'},
             body: JSON.stringify({
                 name: examName,
-                startTime,
-                endTime,
-                duration: parseInt(duration),
                 student_roll_numbers: studentRolls
             })
         });
@@ -548,23 +517,23 @@ async function updateExamsList(){
     const now = new Date();
     let html = '';
     examsData.forEach(exam => {
-        const start = new Date(exam.startTime);
-        const end = new Date(exam.endTime);
-        const beforeStart = now < start;
-        const afterEnd = now > end;
-        const status = exam.active ? 'Active' : (afterEnd ? 'Expired' : 'Inactive');
+        const hasSchedule = Boolean(exam.startTime && exam.endTime && exam.duration);
+        const start = hasSchedule ? new Date(exam.startTime) : null;
+        const end = hasSchedule ? new Date(exam.endTime) : null;
+        const beforeStart = hasSchedule ? now < start : false;
+        const afterEnd = hasSchedule ? now > end : false;
+        const status = !hasSchedule ? 'Draft (schedule pending)' : (exam.active ? 'Active' : (afterEnd ? 'Expired' : 'Inactive'));
         html += `
             <div style="padding:15px; margin-bottom:12px; background:${exam.active ? '#f0fdf4' : '#f9f9f9'}; border-radius:8px; border-left:4px solid ${exam.active ? '#27ae60' : '#999'}; display:flex; justify-content:space-between; align-items:center;">
                 <div style="flex:1;">
                     <p style="margin:0; color:#333; font-weight:600;">${exam.name}</p>
-                    <p style="margin:5px 0 0 0; color:#666; font-size:13px;">Start: ${start.toLocaleString()} | End: ${end.toLocaleString()} | Duration: ${exam.duration} mins</p>
+                    <p style="margin:5px 0 0 0; color:#666; font-size:13px;">${hasSchedule ? `Start: ${start.toLocaleString()} | End: ${end.toLocaleString()} | Duration: ${exam.duration} mins` : 'Schedule: Not set yet'}</p>
                     <p style="margin:5px 0 0 0; color:#666; font-size:12px;">Status: ${status}</p>
                 </div>
                 <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
-                    ${!afterEnd && !exam.active ? `<button onclick="activateExam(${exam.id})" style="background:#27ae60;color:#fff;padding:8px 12px;border:none;border-radius:6px;cursor:pointer;">Activate</button>` : ''}
-                    ${exam.active ? `<button onclick="deactivateExam(${exam.id})" style="background:#f39c12;color:#fff;padding:8px 12px;border:none;border-radius:6px;cursor:pointer;">Deactivate</button>` : ''}
-                    ${!beforeStart ? `<button onclick="extendOngoingExamEndTime(${exam.id})" style="background:#8e44ad;color:#fff;padding:8px 12px;border:none;border-radius:6px;cursor:pointer;">Extend End</button>` : ''}
-                    ${beforeStart ? `<button onclick="editNonStartedExamSchedule(${exam.id})" style="background:#2980b9;color:#fff;padding:8px 12px;border:none;border-radius:6px;cursor:pointer;">Edit Schedule</button>` : ''}
+                    ${!hasSchedule ? `<button onclick="window.location.href='exam.html?examId=${exam.id}'" style="background:#2980b9;color:#fff;padding:8px 12px;border:none;border-radius:6px;cursor:pointer;">Set Questions & Schedule</button>` : ''}
+                    ${(hasSchedule && !beforeStart && !afterEnd) ? `<button onclick="extendOngoingExamEndTime(${exam.id})" style="background:#8e44ad;color:#fff;padding:8px 12px;border:none;border-radius:6px;cursor:pointer;">Extend End</button>` : ''}
+                    ${(hasSchedule && beforeStart) ? `<button onclick="editNonStartedExamSchedule(${exam.id})" style="background:#2980b9;color:#fff;padding:8px 12px;border:none;border-radius:6px;cursor:pointer;">Edit Schedule</button>` : ''}
                     <button onclick="deleteExam(${exam.id})" style="background:#ff6b6b;color:#fff;padding:8px 12px;border:none;border-radius:6px;cursor:pointer;">Delete</button>
                 </div>
             </div>
@@ -601,6 +570,17 @@ async function deactivateExam(examId){
 async function extendOngoingExamEndTime(examId){
     const exam = examsData.find(e => e.id === examId);
     if(!exam) return;
+    const now = new Date();
+    const start = new Date(exam.startTime);
+    const end = new Date(exam.endTime);
+    if(now < start){
+        alert('Exam has not started yet. Extension is only allowed while exam is ongoing.');
+        return;
+    }
+    if(now >= end){
+        alert('Exam already ended. End time cannot be extended now.');
+        return;
+    }
     const newEndInput = prompt('Enter NEW end time (YYYY-MM-DDTHH:MM)', exam.endTime);
     if(!newEndInput) return;
     const res = await fetch(`/api/teacher/exams/${examId}/extend`, {
@@ -889,13 +869,15 @@ async function loadStudentsFromBackend() {
     }
 }
 
-// PERIODIC AUTO-ACTIVATION CHECK - runs every 30 seconds
-setInterval(function(){
-    console.log('🔄 [Auto-Check] Checking for exams that need auto-activation/deactivation...');
-    checkAndAutoActivateExams();
-    // Reload the exams list display if any changes were made
+// PERIODIC AUTO-STATUS REFRESH - runs every 30 seconds
+setInterval(async function(){
+    console.log('🔄 [Auto-Check] Refreshing exam list and status...');
     if(document.getElementById('examsListContainer')){
-        updateExamsList();
+        try {
+            await updateExamsList();
+        } catch (error) {
+            console.error('Auto refresh failed:', error);
+        }
     }
 }, 30000);
 
