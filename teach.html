@@ -532,6 +532,7 @@ async function updateExamsList(){
                 </div>
                 <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
                     ${!hasSchedule ? `<button onclick="window.location.href='exam.html?examId=${exam.id}'" style="background:#2980b9;color:#fff;padding:8px 12px;border:none;border-radius:6px;cursor:pointer;">Set Questions & Schedule</button>` : ''}
+                    ${(hasSchedule && !afterEnd) ? `<button onclick="window.location.href='exam.html?examId=${exam.id}'" style="background:#2980b9;color:#fff;padding:8px 12px;border:none;border-radius:6px;cursor:pointer;">Edit Questions & Schedule</button>` : ''}
                     ${(hasSchedule && !beforeStart && !afterEnd) ? `<button onclick="extendOngoingExamEndTime(${exam.id})" style="background:#8e44ad;color:#fff;padding:8px 12px;border:none;border-radius:6px;cursor:pointer;">Extend End</button>` : ''}
                     ${(hasSchedule && beforeStart) ? `<button onclick="editNonStartedExamSchedule(${exam.id})" style="background:#2980b9;color:#fff;padding:8px 12px;border:none;border-radius:6px;cursor:pointer;">Edit Schedule</button>` : ''}
                     <button onclick="deleteExam(${exam.id})" style="background:#ff6b6b;color:#fff;padding:8px 12px;border:none;border-radius:6px;cursor:pointer;">Delete</button>

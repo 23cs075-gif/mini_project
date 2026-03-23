@@ -677,6 +677,10 @@ def create_app():
             if not exam:
                 return jsonify(message='exam not found'), 404
 
+            now = app_now()
+            if exam.end_time and now >= exam.end_time:
+                return jsonify(message='exam already ended; questions cannot be edited now'), 400
+
             data = request.get_json() or {}
             questions = data.get('questions') or []
             schedule_start = _to_dt(data.get('startTime'))

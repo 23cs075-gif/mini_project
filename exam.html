@@ -177,6 +177,15 @@ function toDatetimeLocalValue(value) {
     return local.toISOString().slice(0, 16);
 }
 
+function escapeHtml(value) {
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 window.addEventListener('DOMContentLoaded', async () => {
     const examId = getQueryParam('examId');
     if (!examId) {
@@ -203,6 +212,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         examData.startTime = exam.startTime;
         examData.endTime = exam.endTime;
         examData.duration = exam.duration;
+        examData.questions = exam.questions || [];
         examData.students = exam.students || [];
 
         document.getElementById('examStartTime').value = toDatetimeLocalValue(examData.startTime);
@@ -211,36 +221,48 @@ window.addEventListener('DOMContentLoaded', async () => {
 
         const infoDiv = document.getElementById('examInfo');
         infoDiv.textContent = `Exam: ${examData.name} — Students: ${examData.students.length}`;
+
+        if (examData.questions.length > 0) {
+            document.getElementById('totalQuestions').value = examData.questions.length;
+            generateQuestions(examData.questions);
+        }
     } catch (err) {
         console.error('Failed to load exam:', err);
         alert('Failed to load exam');
     }
 });
 
-function generateQuestions() {
+function generateQuestions(existingQuestions = null) {
     const total = document.getElementById("totalQuestions").value;
     const container = document.getElementById("questionsContainer");
     container.innerHTML = "";
     examData.questions = [];
 
+    const existing = Array.isArray(existingQuestions) ? existingQuestions : [];
+
     for (let i = 1; i <= total; i++) {
+        const current = existing[i - 1] || {};
+        const type = current.type || 'numerical';
+        const question = escapeHtml(current.question || '');
+        const teacherAnswer = escapeHtml(current.teacherAnswer || '');
+
         container.innerHTML += `
             <div class="question-box">
                 <h3>Question ${i}</h3>
 
                 <label>Type:</label>
                 <select id="type${i}">
-                    <option value="numerical">Numerical</option>
-                    <option value="code">Code</option>
-                    <option value="direct">Direct Fill</option>
-                    <option value="english">English Semantic</option>
+                    <option value="numerical" ${type === 'numerical' ? 'selected' : ''}>Numerical</option>
+                    <option value="code" ${type === 'code' ? 'selected' : ''}>Code</option>
+                    <option value="direct" ${type === 'direct' ? 'selected' : ''}>Direct Fill</option>
+                    <option value="english" ${type === 'english' ? 'selected' : ''}>English Semantic</option>
                 </select>
 
                 <label>Question:</label>
-                <textarea id="question${i}" placeholder="Enter question here"></textarea>
+                <textarea id="question${i}" placeholder="Enter question here">${question}</textarea>
 
                 <label>Teacher Answer:</label>
-                <textarea id="teacher${i}" placeholder="Enter correct answer"></textarea>
+                <textarea id="teacher${i}" placeholder="Enter correct answer">${teacherAnswer}</textarea>
             </div>
         `;
     }
@@ -319,7 +341,7 @@ document.getElementById("setExamBtn").addEventListener("click", async () => {
             alert(data.message || 'Failed to save exam questions');
             return;
         }
-        alert('Exam questions saved successfully!');
+        alert('Exam questions updated successfully!');
         window.location.href = 'teach.html';
     } catch (err) {
         console.error('Save exam questions failed:', err);

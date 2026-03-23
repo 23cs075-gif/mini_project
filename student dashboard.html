@@ -565,6 +565,20 @@ async function evaluateQuestion(question, teacherAnswer, studentAnswer, question
         return studentAnswer.trim().toLowerCase() === teacherAnswer.trim().toLowerCase();
     }
 }
+
+function escapeHtml(value) {
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function formatMultilineText(value) {
+    return escapeHtml(value).replace(/\r?\n/g, '<br>');
+}
+
 // legacy localStorage submit handlers removed; database-backed handlers are defined near the bottom.
 async function logout(){
     try{
@@ -872,7 +886,7 @@ async function startStudentExam(examIndex) {
         (fullExam.questions || []).forEach((q, i) => {
             container.innerHTML += `
                 <div class="question-box">
-                    <h4>Q${i + 1}: ${q.question}</h4>
+                    <h4>Q${i + 1}: ${formatMultilineText(q.question)}</h4>
                     <textarea id="studentAnswer${i}" placeholder="Enter your answer"></textarea>
                     <div id="result${i}" style="margin-top:8px;"></div>
                 </div>
@@ -967,6 +981,9 @@ function viewExamDetails(examId) {
     (exam.questions || []).forEach((question, idx) => {
         const studentAnswer = (exam.studentAnswers || [])[idx] || '';
         const teacherAnswer = question.teacherAnswer || '';
+        const formattedQuestion = formatMultilineText(question.question || '');
+        const formattedTeacherAnswer = formatMultilineText(teacherAnswer);
+        const formattedStudentAnswer = studentAnswer ? formatMultilineText(studentAnswer) : '<em style="color:#999;">(Not answered)</em>';
         const isCorrect = (exam.questionResults || [])[idx] === true;
         const borderColor = isCorrect ? '#27ae60' : '#ff6b6b';
         const bgColor = isCorrect ? '#f0fdf4' : '#fef2f2';
@@ -974,10 +991,10 @@ function viewExamDetails(examId) {
         const statusColor = isCorrect ? '#27ae60' : '#ff6b6b';
         detailsHTML += `
             <div style="padding:15px; background:${bgColor}; border-radius:8px; border-left:4px solid ${borderColor}; margin-bottom:15px;">
-                <p style="margin:0 0 10px 0; font-weight:600; color:#333;"><b>Q${idx + 1}:</b> ${question.question}</p>
+                <p style="margin:0 0 10px 0; font-weight:600; color:#333;"><b>Q${idx + 1}:</b> ${formattedQuestion}</p>
                 <p style="margin:8px 0; color:${statusColor}; font-weight:700; font-size:15px;"><b>${statusText}</b></p>
-                <p style="margin:8px 0; color:#555;"><b>Your Answer:</b> ${studentAnswer || '<em style="color:#999;">(Not answered)</em>'}</p>
-                <p style="margin:8px 0 0 0; color:#333;"><b>Correct Answer:</b> ${teacherAnswer}</p>
+                <p style="margin:8px 0; color:#555;"><b>Your Answer:</b> ${formattedStudentAnswer}</p>
+                <p style="margin:8px 0 0 0; color:#333;"><b>Correct Answer:</b> ${formattedTeacherAnswer}</p>
             </div>
         `;
     });
