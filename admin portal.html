@@ -75,13 +75,26 @@
             <input id="reg-fullname" type="text" placeholder="Full Name">
             <input id="reg-username"
        type="text"
-       placeholder="Username only small letters&numbers
+       placeholder="Username only small letters & numbers"
        pattern="[a-z0-9]+"
        title="Only small letters & numbers"
        required>
 
+          <input id="reg-email" type="email" placeholder="Email (@mgits.ac.in)">
+
             <input id="reg-password" type="password" placeholder="Password">
-            <input id="reg-department" type="text" placeholder="Department">
+            <select id="reg-department">
+              <option value="" selected disabled>Select Department</option>
+              <option value="CSA">CSA</option>
+              <option value="CSB">CSB</option>
+              <option value="CYBER">CYBER</option>
+              <option value="AIDS">AIDS</option>
+              <option value="AI">AI</option>
+              <option value="MECH">MECH</option>
+              <option value="CIVIL">CIVIL</option>
+              <option value="EEE">EEE</option>
+              <option value="EC">EC</option>
+            </select>
 
             <input id="reg-confirm-password" type="password" placeholder="Confirm Password">
             <input id="reg-mobile" type="tel" placeholder="Mobile Number">
@@ -123,6 +136,28 @@ async function registerTeacher(){
   const department = document.getElementById('reg-department').value.trim();
   const phone = document.getElementById('reg-mobile').value.trim();
   const email = document.getElementById('reg-email').value.trim();
+  const phonePattern = /^\d{10}$/;
+  if(!phonePattern.test(phone)){
+    alert('Phone number must be exactly 10 digits');
+    return;
+  }
+
+  if(!department){
+    alert('Please select a department');
+    return;
+  }
+
+  const emailPattern = /^[a-zA-Z0-9._%+-]+@mgits\.ac\.in$/;
+
+  if(!emailPattern.test(email)){
+    alert("Only MGITS email IDs (@mgits.ac.in) are allowed!");
+    return;
+  }
+
+  if((email.match(/@/g) || []).length !== 1){
+    alert('Email must contain only one @ symbol');
+    return;
+  }
 
   if(password !== confirm){
     alert('Passwords do not match');

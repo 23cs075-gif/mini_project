@@ -3,6 +3,7 @@ from flask import Flask, request, jsonify, session, redirect
 from config import Config
 from extensions import db
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from datetime import datetime, timedelta
 import re
 from sentence_transformers import SentenceTransformer, util
@@ -22,10 +23,23 @@ nli = pipeline("text-classification", model="roberta-large-mnli")
 print("Models Loaded!")
 
 APP_TIMEZONE_OFFSET_MINUTES = int(os.getenv('APP_TIMEZONE_OFFSET_MINUTES', '330'))
+VALID_DEPARTMENTS = {'CSA', 'CSB', 'CYBER', 'AIDS', 'AI', 'MECH', 'CIVIL', 'EEE', 'EC'}
 
 
 def app_now():
     return datetime.utcnow() + timedelta(minutes=APP_TIMEZONE_OFFSET_MINUTES)
+
+
+def _is_valid_mgits_email(email: str) -> bool:
+    if not email:
+        return False
+    if email.count('@') != 1:
+        return False
+    return re.match(r'^[a-zA-Z0-9._%+-]+@mgits\.ac\.in$', email) is not None
+
+
+def _is_valid_phone(phone: str) -> bool:
+    return re.match(r'^\d{10}$', phone or '') is not None
 
 def normalize(code: str) -> str:
     code = re.sub(r'#.*', '', code)
@@ -276,21 +290,17 @@ def create_app():
             if not re.match(r'^[a-z0-9]+$', username):
                 return jsonify(message='Username must contain only small letters and numbers'), 400
 
-        # -------------------------
-        # Email validation
-        # must end with @mgits.ac.in
-        # -------------------------
             email = data.get('email', '').strip()
+            phone = str(data.get('phone', '')).strip()
+            department = str(data.get('department', '')).strip().upper()
 
-            if email.count('@') != 1:
-                return jsonify(message='Email must contain only one @ symbol'), 400
-
-            if not re.match(r'^[a-zA-Z0-9._%+-]+@mgits\.ac\.in$', email):
+            if not _is_valid_mgits_email(email):
                 return jsonify(message='Email must be a valid @mgits.ac.in address'), 400
+            if not _is_valid_phone(phone):
+                return jsonify(message='Phone number must be exactly 10 digits'), 400
+            if department not in VALID_DEPARTMENTS:
+                return jsonify(message='Please select a valid department'), 400
 
-        # -------------------------
-        # Prevent duplicate users
-        # -------------------------
             exists = Student.query.filter(
                 (Student.username == username) |
                 (Student.email == email) |
@@ -304,8 +314,8 @@ def create_app():
                 name=data.get('name'),
                 username=username,
                 email=email,
-                department=data.get('department'),
-                phone=data.get('phone'),
+                department=department,
+                phone=phone,
                 roll_number=data.get('roll_number'),
                 semester=data.get('semester')
                 )
@@ -392,15 +402,52 @@ def create_app():
             if not student:
                 return jsonify(message='not authenticated'), 401
             data = request.get_json() or {}
+            if 'username' in data:
+                username = str(data.get('username', '')).strip()
+                if username != (student.username or '') and not re.match(r'^[a-z]+$', username):
+                    return jsonify(message='Username must contain only lowercase letters (a-z)'), 400
+                data['username'] = username
+            if 'email' in data:
+                email = str(data.get('email', '')).strip()
+                if not _is_valid_mgits_email(email):
+                    return jsonify(message='Email must be a valid @mgits.ac.in address'), 400
+                data['email'] = email
+            if 'phone' in data:
+                phone = str(data.get('phone', '')).strip()
+                if not _is_valid_phone(phone):
+                    return jsonify(message='Phone number must be exactly 10 digits'), 400
+                data['phone'] = phone
+            if 'department' in data:
+                department = str(data.get('department', '')).strip().upper()
+                if department not in VALID_DEPARTMENTS:
+                    return jsonify(message='Please select a valid department'), 400
+                data['department'] = department
+            if 'roll_number' in data:
+                roll_number = str(data.get('roll_number', '')).strip()
+                if not roll_number:
+                    return jsonify(message='roll number required'), 400
+                if len(roll_number) > 50:
+                    return jsonify(message='roll number is too long (max 50 characters)'), 400
+                exists = Student.query.filter(
+                    Student.roll_number == roll_number,
+                    Student.id != student.id
+                ).first()
+                if exists:
+                    return jsonify(message='roll number already exists'), 400
+                data['roll_number'] = roll_number
             # only update known fields
             for field in ('name', 'email', 'department', 'phone', 'roll_number', 'semester', 'photo', 'username'):
                 if field in data:
                     setattr(student, field, data[field])
             db.session.commit()
             return jsonify(message='updated')
+        except IntegrityError:
+            db.session.rollback()
+            return jsonify(message='username/email/roll number already exists'), 400
         except Exception as e:
-            app.logger.error(f"Update student error: {e}")
-            return jsonify(message='update failed'), 500
+            db.session.rollback()
+            app.logger.exception("Update student error")
+            return jsonify(message=f'update failed: {str(e)}'), 500
 
     @app.route('/api/student/change_password', methods=['POST'])
     def student_change_password():
@@ -437,9 +484,20 @@ def create_app():
             if not data.get('username') or not data.get('password'):
                 return jsonify(message='username and password required'), 400
 
+            email = str(data.get('email', '')).strip()
+            phone = str(data.get('phone', '')).strip()
+            department = str(data.get('department', '')).strip().upper()
+
+            if not _is_valid_mgits_email(email):
+                return jsonify(message='Email must be a valid @mgits.ac.in address'), 400
+            if not _is_valid_phone(phone):
+                return jsonify(message='Phone number must be exactly 10 digits'), 400
+            if department not in VALID_DEPARTMENTS:
+                return jsonify(message='Please select a valid department'), 400
+
             exists = Teacher.query.filter(
                 (Teacher.username == data.get('username')) |
-                (Teacher.email == data.get('email'))
+                (Teacher.email == email)
             ).first()
             if exists:
                 return jsonify(message='user already exists'), 400
@@ -447,9 +505,9 @@ def create_app():
             teacher = Teacher(
                 name=data.get('name'),
                 username=data.get('username'),
-                email=data.get('email'),
-                department=data.get('department'),
-                phone=data.get('phone')
+                email=email,
+                department=department,
+                phone=phone
             )
             teacher.set_password(data.get('password'))
             db.session.add(teacher)
@@ -491,6 +549,7 @@ def create_app():
                 id=teacher.id,
                 username=teacher.username,
                 name=teacher.name,
+                email=teacher.email,
                 department=teacher.department,
                 phone=teacher.phone,
                 photo=teacher.photo,
@@ -506,12 +565,37 @@ def create_app():
             if not teacher:
                 return jsonify(message='not authenticated'), 401
             data = request.get_json() or {}
-            for field in ('name', 'department', 'phone', 'username', 'photo'):
+            if 'username' in data:
+                username = str(data.get('username', '')).strip()
+                if username != (teacher.username or '') and not re.match(r'^[a-z]+$', username):
+                    return jsonify(message='Username must contain only lowercase letters (a-z)'), 400
+                data['username'] = username
+            if 'email' in data:
+                email = str(data.get('email', '')).strip()
+                if not _is_valid_mgits_email(email):
+                    return jsonify(message='Email must be a valid @mgits.ac.in address'), 400
+                data['email'] = email
+            if 'phone' in data:
+                phone = str(data.get('phone', '')).strip()
+                if not _is_valid_phone(phone):
+                    return jsonify(message='Phone number must be exactly 10 digits'), 400
+                data['phone'] = phone
+            if 'department' in data:
+                department = str(data.get('department', '')).strip().upper()
+                if department not in VALID_DEPARTMENTS:
+                    return jsonify(message='Please select a valid department'), 400
+                data['department'] = department
+
+            for field in ('name', 'email', 'department', 'phone', 'username', 'photo'):
                 if field in data:
                     setattr(teacher, field, data[field])
             db.session.commit()
             return jsonify(message='updated')
+        except IntegrityError:
+            db.session.rollback()
+            return jsonify(message='username/email already exists'), 400
         except Exception as e:
+            db.session.rollback()
             app.logger.error(f"Update teacher error: {e}")
             return jsonify(message='update failed'), 500
 
@@ -612,6 +696,27 @@ def create_app():
         if exam.status_active != should_be_active:
             exam.status_active = should_be_active
 
+    def _mark_missed_exam_students(exam, student_id=None):
+        if not exam or not exam.end_time:
+            return False
+
+        now = app_now()
+        if now < exam.end_time:
+            return False
+
+        query = ExamStudent.query.filter_by(exam_id=exam.id)
+        if student_id is not None:
+            query = query.filter_by(student_id=student_id)
+
+        links = query.filter(ExamStudent.status.in_(['not-attempted', 'in-progress'])).all()
+        changed = False
+        for link in links:
+            link.status = 'missed'
+            if not link.end_time:
+                link.end_time = exam.end_time
+            changed = True
+        return changed
+
     @app.route('/api/teacher/exams', methods=['GET'])
     def teacher_get_exams():
         try:
@@ -622,6 +727,7 @@ def create_app():
             exams = Exam.query.filter_by(created_by=teacher.id).order_by(Exam.id.desc()).all()
             for exam in exams:
                 _refresh_exam_status(exam)
+                _mark_missed_exam_students(exam)
             db.session.commit()
 
             return jsonify(exams=[_exam_to_dict(exam, include_students=True, include_questions=True) for exam in exams])
@@ -833,6 +939,9 @@ def create_app():
             if not exam:
                 return jsonify(message='exam not found'), 404
 
+            _refresh_exam_status(exam)
+            _mark_missed_exam_students(exam)
+
             questions = Question.query.filter_by(exam_id=exam.id).order_by(Question.id.asc()).all()
             q_payload = [
                 {
@@ -864,8 +973,10 @@ def create_app():
                     'questionResults': question_results,
                     'missed': link.status == 'missed'
                 })
+            db.session.commit()
             return jsonify(exam={'id': exam.id, 'name': exam.name}, rows=rows)
         except Exception as e:
+            db.session.rollback()
             app.logger.error(f"Teacher exam report error: {e}")
             return jsonify(message='failed to fetch report'), 500
 
@@ -905,6 +1016,7 @@ def create_app():
                 if not exam:
                     continue
                 _refresh_exam_status(exam)
+                _mark_missed_exam_students(exam, student_id=student.id)
                 out.append({
                     'id': exam.id,
                     'name': exam.name,
@@ -1002,13 +1114,32 @@ def create_app():
             if not student:
                 return jsonify(message='not authenticated'), 401
             links = ExamStudent.query.filter_by(student_id=student.id).all()
+            now = app_now()
             rows = []
             for link in links:
-                if link.status not in ('completed', 'missed'):
-                    continue
                 exam = Exam.query.get(link.exam_id)
+                if exam:
+                    _refresh_exam_status(exam)
+                    _mark_missed_exam_students(exam, student_id=student.id)
                 if not exam:
                     continue
+
+                is_missed = (
+                    link.status == 'missed' or
+                    (
+                        link.status in ('not-attempted', 'in-progress') and
+                        exam.end_time is not None and
+                        now >= exam.end_time
+                    )
+                )
+                if is_missed and link.status != 'missed':
+                    link.status = 'missed'
+                    if not link.end_time:
+                        link.end_time = exam.end_time
+
+                if link.status != 'completed' and not is_missed:
+                    continue
+
                 questions = Question.query.filter_by(exam_id=exam.id).order_by(Question.id.asc()).all()
                 answers = link.answers or {}
                 rows.append({
@@ -1018,7 +1149,7 @@ def create_app():
                     'endTime': exam.end_time.isoformat() if exam.end_time else None,
                     'duration': exam.duration,
                     'submitted': link.status == 'completed',
-                    'missed': link.status == 'missed',
+                    'missed': is_missed,
                     'score': link.score or 0,
                     'questions': [
                         {
@@ -1031,8 +1162,10 @@ def create_app():
                     'studentAnswers': answers.get('studentAnswers') or [],
                     'questionResults': answers.get('questionResults') or []
                 })
+            db.session.commit()
             return jsonify(results=rows)
         except Exception as e:
+            db.session.rollback()
             app.logger.error(f"Student results error: {e}")
             return jsonify(message='failed to fetch results'), 500
 

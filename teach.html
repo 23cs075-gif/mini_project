@@ -78,13 +78,28 @@
                 </div>
                 <div>
                     <label style="display:block; margin-bottom:5px; font-weight:600; color:#333;">Teacher ID</label>
-                    <input id="settings-username" type="text" value="" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px;">
+                    <input id="settings-username" type="text" value="" pattern="[a-z]+" title="Only lowercase letters (a-z) allowed" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px;">
                 </div>
                 
                 
                 <div>
+                    <label style="display:block; margin-bottom:5px; font-weight:600; color:#333;">Email ID</label>
+                    <input id="settings-email" type="email" value="" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px;">
+                </div>
+                <div>
                     <label style="display:block; margin-bottom:5px; font-weight:600; color:#333;">Department</label>
-                    <input id="settings-department" type="text" value="" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px;">
+                    <select id="settings-department" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px;">
+                        <option value="" selected disabled>Select Department</option>
+                        <option value="CSA">CSA</option>
+                        <option value="CSB">CSB</option>
+                        <option value="CYBER">CYBER</option>
+                        <option value="AIDS">AIDS</option>
+                        <option value="AI">AI</option>
+                        <option value="MECH">MECH</option>
+                        <option value="CIVIL">CIVIL</option>
+                        <option value="EEE">EEE</option>
+                        <option value="EC">EC</option>
+                    </select>
                 </div>
                 <div>
                     <label style="display:block; margin-bottom:5px; font-weight:600; color:#333;">Phone Number</label>
@@ -230,14 +245,6 @@
             <select id="examReportSelect" onchange="loadExamReport()" style="width:100%; padding:12px; border:1px solid #ddd; border-radius:8px; margin-bottom:20px; font-size:14px;">
                 <option value="">-- Select an exam --</option>
             </select>
-
-            <!-- Clear All Results Button -->
-            <div style="margin-bottom:20px;">
-                <button onclick="clearAllStudentResults()" style="background:#ff6b6b; color:white; padding:10px 20px; border:none; border-radius:8px; cursor:pointer; font-weight:600;">
-                    🗑️ Clear All Results
-                </button>
-                <p style="font-size:12px; color:#666; margin-top:8px;">This will permanently delete all student exam results from the system.</p>
-            </div>
 
             <!-- Report Content -->
             <div id="reportContent" style="display:none;">
@@ -624,7 +631,11 @@ async function loadExamReport(){
     let html = '';
     currentReportRows.forEach(row => {
         if(!row.submitted){
-            html += `<div style="padding:15px; background:#fff3cd; border-radius:8px; border-left:4px solid #ff9800; margin-bottom:10px;"><p style="margin:0; font-weight:600;">${row.student_name} (${row.student_roll})</p><p style="margin:5px 0 0; color:#ff9800; font-weight:700;">⚠️ Not Attempted</p></div>`;
+            if(row.missed){
+                html += `<div style="padding:15px; background:#fef2f2; border-radius:8px; border-left:4px solid #ff6b6b; margin-bottom:10px;"><p style="margin:0; font-weight:600;">${row.student_name} (${row.student_roll})</p><p style="margin:5px 0 0; color:#ff6b6b; font-weight:700;">❌ Missed</p></div>`;
+            } else {
+                html += `<div style="padding:15px; background:#fff3cd; border-radius:8px; border-left:4px solid #ff9800; margin-bottom:10px;"><p style="margin:0; font-weight:600;">${row.student_name} (${row.student_roll})</p><p style="margin:5px 0 0; color:#ff9800; font-weight:700;">⚠️ Not Attempted</p></div>`;
+            }
         } else {
             const pct = row.total_questions > 0 ? Math.round((row.score / row.total_questions) * 100) : 0;
             html += `<div style="padding:15px; background:#f0fdf4; border-radius:8px; border-left:4px solid #27ae60; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;"><div><p style="margin:0; font-weight:600;">${row.student_name} (${row.student_roll})</p><p style="margin:5px 0 0;">Score: <b>${row.score}/${row.total_questions}</b> (${pct}%)</p></div><button onclick="viewStudentAnswers('${row.student_roll}')" style="background:#5a0f1b;color:#fff;padding:8px 15px;border:none;border-radius:6px;cursor:pointer;">View Details</button></div>`;
@@ -637,7 +648,9 @@ async function loadExamReport(){
 
 function viewStudentAnswers(studentRoll){
     const row = currentReportRows.find(r => String(r.student_roll) === String(studentRoll));
-    if(!row || !row.submitted){ alert('Student has not submitted this exam'); return; }
+    if(!row){ alert('Student record not found'); return; }
+    if(row.missed){ alert('Student missed this exam'); return; }
+    if(!row.submitted){ alert('Student has not submitted this exam'); return; }
     const percentage = row.total_questions > 0 ? Math.round((row.score / row.total_questions) * 100) : 0;
     document.getElementById('answerStudentName').textContent = row.student_name;
     document.getElementById('answerStudentScore').textContent = `${row.score} / ${row.total_questions} (${percentage}%) - DONE`;
@@ -662,17 +675,6 @@ function viewStudentAnswers(studentRoll){
 function closeAnswerDetails(){
     document.getElementById('answerDetails').style.display = 'none';
     document.getElementById('reportStudentList').style.display = 'flex';
-}
-
-async function clearAllStudentResults(){
-    if(!confirm('⚠️ This will clear all student exam results. Continue?')) return;
-    const res = await fetch('/api/teacher/results/clear', { method:'POST', credentials:'same-origin' });
-    const data = await res.json();
-    if(!res.ok){ alert(data.message || 'Failed to clear results'); return; }
-    alert('✅ Student results cleared');
-    document.getElementById('reportContent').style.display = 'none';
-    await updateExamsList();
-    await populateExamDropdown();
 }
 
 async function populateExamDropdown(){
@@ -736,6 +738,7 @@ document.addEventListener("DOMContentLoaded", function() {
         const profileAvatar = document.getElementById('profile-avatar');
         const profileUpload = document.getElementById('profile-upload');
         let currentTeacherPhoto = '';
+        let originalTeacherUsername = '';
         
         if(profileAvatar && profileUpload){
             profileAvatar.addEventListener('click', () => profileUpload.click());
@@ -768,6 +771,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 if(!res.ok) throw new Error('not logged in');
                 const data = await res.json();
                 localStorage.setItem("loggedTeacher", JSON.stringify(data));
+                originalTeacherUsername = data.username || '';
                 document.getElementById('user-name').textContent = data.username;
                 if(data.photo && profileAvatar){
                     currentTeacherPhoto = data.photo;
@@ -778,13 +782,25 @@ document.addEventListener("DOMContentLoaded", function() {
                 // Fill settings inputs
                 // Update dashboard profile section
 document.getElementById('dash-name').textContent = data.name || '';
-document.getElementById('dash-department').textContent = data.department || '';
+document.getElementById('dash-department').textContent = (data.department || '').toUpperCase();
 document.getElementById('dash-phone').textContent = data.phone || '';
 document.getElementById('dash-role').textContent = data.role || 'Faculty';
   document.getElementById('settings-name').value = data.name || '';
         document.getElementById('settings-username').value = data.username || '';
-       
-        document.getElementById('settings-department').value = data.department || '';
+    document.getElementById('settings-email').value = data.email || '';
+
+        const departmentSelect = document.getElementById('settings-department');
+        const departmentValue = (data.department || '').toUpperCase();
+        if (departmentSelect) {
+            const hasOption = Array.from(departmentSelect.options).some(opt => opt.value === departmentValue);
+            if (!hasOption && departmentValue) {
+                const customOption = document.createElement('option');
+                customOption.value = departmentValue;
+                customOption.textContent = departmentValue;
+                departmentSelect.appendChild(customOption);
+            }
+            departmentSelect.value = departmentValue;
+        }
         document.getElementById('settings-phone').value = data.phone || '';                
                 // Start typing animation with the loaded username
                 startTypingAnimation(data.name);
@@ -797,11 +813,38 @@ document.getElementById('dash-role').textContent = data.role || 'Faculty';
         loadProfile();
 
         window.saveSettings = async function(){
+            const username = document.getElementById('settings-username').value.trim();
+            const email = document.getElementById('settings-email').value.trim();
+            const phone = document.getElementById('settings-phone').value.trim();
+            const department = document.getElementById('settings-department').value.trim();
+
+            const usernamePattern = /^[a-z]+$/;
+            const emailPattern = /^[a-zA-Z0-9._%+-]+@mgits\.ac\.in$/;
+            const phonePattern = /^\d{10}$/;
+
+            if(username !== originalTeacherUsername && !usernamePattern.test(username)){
+                alert('Username must contain only lowercase letters (a-z)');
+                return;
+            }
+            if(!emailPattern.test(email) || (email.match(/@/g) || []).length !== 1){
+                alert('Email must be a valid @mgits.ac.in address');
+                return;
+            }
+            if(!phonePattern.test(phone)){
+                alert('Phone number must be exactly 10 digits');
+                return;
+            }
+            if(!department){
+                alert('Please select a department');
+                return;
+            }
+
             const payload = {
                 name: document.getElementById('settings-name').value.trim(),
-                username: document.getElementById('settings-username').value.trim(),
-                department: document.getElementById('settings-department').value.trim(),
-                phone: document.getElementById('settings-phone').value.trim()
+                username: username,
+                email: email,
+                department: department,
+                phone: phone
             };
             try{
                 const res = await fetch('/api/teacher/update',{

@@ -216,111 +216,7 @@
 
 <!-- RESULTS & HISTORY (COMBINED) -->
 <div id="results" class="section">
-    <div class="section-title">Results & Performance
-        <button id="clearMyResultsBtn" onclick="clearMyResults()" style="margin-left:15px; background:#ff6b6b; color:white; padding:6px 12px; border:none; border-radius:6px; cursor:pointer; font-size:13px;">Clear My Results</button>
-    </div>
-
-    <!-- PYTHON QUIZ RESULTS -->
-    <div class="result-exam hidden">
-        <div class="card">
-            <h3 style="color:#5a0f1b; margin-bottom:15px; border-bottom:2px solid #5a0f1b; padding-bottom:10px;">Python Quiz - 10-Jan-2026</h3>
-            <p><b>Score:</b> <span style="color:#27ae60; font-weight:700;">20 / 30</span> | <b>Status:</b> <span style="color:#27ae60;">PASS</span> | <b>Accuracy:</b> 76%</p>
-          
-            
-            <div style="margin-top:20px; border-top:1px solid #ddd; padding-top:15px;">
-               
-                <div style="margin-bottom:20px; padding:15px; background:#f9f9f9; border-radius:10px; border-left:4px solid #27ae60;">
-                    <p><b>Q1: What is a Python list?</b></p>
-                    <p><b style="color:#27ae60;">✓ Your Answer:</b> An ordered collection of items</p>
-                    <p><b>Correct Answer:</b> An ordered, mutable collection of items</p>
-                </div>
-                <div style="margin-bottom:20px; padding:15px; background:#f9f9f9; border-radius:10px; border-left:4px solid #27ae60;">
-                    <p><b>Q2: What is a dictionary in Python?</b></p>
-                    <p><b style="color:#27ae60;">✓ Your Answer:</b> An unordered collection of key-value pairs</p>
-                    <p><b>Correct Answer:</b> An unordered collection of key-value pairs</p>
-                </div>
-                <div style="margin-bottom:20px; padding:15px; background:#fff3cd; border-radius:10px; border-left:4px solid #ff6b6b;">
-                    <p><b>Q3: Explain list comprehension</b></p>
-                    <p><b style="color:#ff6b6b;">✗ Your Answer:</b> Using a for loop inside brackets</p>
-                    <p><b>Correct Answer:</b> A concise way to create a new list by applying an operation to items</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- OOP BASICS RESULTS -->
-    <div class="result-exam hidden">
-        <div class="card">
-            <h3 style="color:#5a0f1b; margin-bottom:15px; border-bottom:2px solid #5a0f1b; padding-bottom:10px;">OOP Basics - 05-Dec-2025</h3>
-            <p><b>Score:</b> <span style="color:#27ae60; font-weight:700;">20 / 20</span> | <b>Status:</b> <span style="color:#27ae60;">PASS</span> | <b>Accuracy:</b> 76%</p>
-            
-            <div style="margin-top:20px; border-top:1px solid #ddd; padding-top:15px;">
-                <div style="margin-bottom:20px; padding:15px; background:#f9f9f9; border-radius:10px; border-left:4px solid #27ae60;">
-                    <p><b>Q1: What is a class in OOP?</b></p>
-                    <p><b style="color:#27ae60;">✓ Your Answer:</b> A blueprint for creating objects</p>
-                    <p><b>Correct Answer:</b> A blueprint for creating objects</p>
-                </div>
-                <div style="margin-bottom:20px; padding:15px; background:#f9f9f9; border-radius:10px; border-left:4px solid #27ae60;">
-                    <p><b>Q2: Explain inheritance</b></p>
-                    <p><b style="color:#27ae60;">✓ Your Answer:</b> Passing properties from parent to child class</p>
-                    <p><b>Correct Answer:</b> Passing properties from parent to child class</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    
-
-    <!-- WEB DEV RESULTS (NOT ATTEMPTED) -->
-    <div class="result-exam hidden">
-        <div class="card">
-            <h3 style="color:#5a0f1b; margin-bottom:15px; border-bottom:2px solid #5a0f1b; padding-bottom:10px;">Web Development - 18-Feb-2026</h3>
-            <p><b>Status:</b> <span style="color:#ff6b6b; font-weight:700;">NOT ATTEMPTED</span></p>
-            
-            <div style="margin-top:20px; text-align:center; padding:30px; background:#fff3cd; border-radius:10px;">
-                <i class="fas fa-info-circle" style="font-size:32px; color:#ff6b6b; margin-bottom:10px; display:block;"></i>
-                <p style="color:#333; font-weight:600;">This exam has not been attempted yet.</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- ALL EXAMS SUMMARY -->
-    <div class="result-exam" id="all-results">
-        <div class="card">
-            <h3 style="color:#5a0f1b; margin-bottom:15px;">Your Exam Results</h3>
-            <table>
-                <tr>
-                    <th>Exam</th>
-                    <th>Date</th>
-                    <th>Marks</th>
-                    <th>Status</th>
-                    <th>Action</th>
-                </tr>
-                <tr>
-                    <td>Python Quiz</td>
-                    <td>10-Jan-2026</td>
-                    <td>20 /30</td>
-                    <td class="pass">Pass</td>
-                    <td><a href="#" onclick="filterResults('python'); return false;" style="color:#5a0f1b; font-weight:600;">View Details</a></td>
-                </tr>
-                <tr>
-                    <td>OOP Basics</td>
-                    <td>05-Dec-2025</td>
-                    <td>20 /20</td>
-                    <td class="pass">Pass</td>
-                    <td><a href="#" onclick="filterResults('oops'); return false;" style="color:#5a0f1b; font-weight:600;">View Details</a></td>
-                </tr>
-                    
-                <tr>
-                    <td>Web Development</td>
-                    <td>18-Feb-2026</td>
-                    <td>-- / --</td>
-                    <td style="color:#ff6b6b; font-weight:700;">Not Attempted</td>
-                    <td><a href="#" onclick="filterResults('webdev'); return false;" style="color:#5a0f1b; font-weight:600;">View Details</a></td>
-                </tr>
-            </table>
-        </div>
-    </div>
+    <div class="section-title">Results & Performance</div>
 </div>
 
 <!-- SETTINGS SECTION -->
@@ -336,7 +232,7 @@
                 </div>
                 <div>
                     <label style="display:block; margin-bottom:5px; font-weight:600; color:#333;">User</label>
-                    <input id="settings-username" type="text" value="" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px;">
+                    <input id="settings-username" type="text" value="" pattern="[a-z]+" title="Only lowercase letters (a-z) allowed" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px;">
                 </div>
                 <div>
                     <label style="display:block; margin-bottom:5px; font-weight:600; color:#333;">Roll Number</Nav></label>
@@ -347,8 +243,19 @@
                     <input id="settings-email" type="email" value="" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px;">
                 </div>
                 <div>
-                    <label style="display:block; margin-bottom:5px; font-weight:600; color:#333;">Course</label>
-                    <input id="settings-course" type="text" value="" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px;">
+                    <label style="display:block; margin-bottom:5px; font-weight:600; color:#333;">Department</label>
+                    <select id="settings-course" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px;">
+                        <option value="" selected disabled>Select Department</option>
+                        <option value="CSA">CSA</option>
+                        <option value="CSB">CSB</option>
+                        <option value="CYBER">CYBER</option>
+                        <option value="AIDS">AIDS</option>
+                        <option value="AI">AI</option>
+                        <option value="MECH">MECH</option>
+                        <option value="CIVIL">CIVIL</option>
+                        <option value="EEE">EEE</option>
+                        <option value="EC">EC</option>
+                    </select>
                 </div>
                 <div>
                     <label style="display:block; margin-bottom:5px; font-weight:600; color:#333;">Phone Number</label>
@@ -451,24 +358,11 @@ function closeExamDetails() {
 }
 
 function filterResults(exam){
-    const exams = document.querySelectorAll('.result-exam');
-    exams.forEach(e => e.classList.add('hidden'));
-    
-    const buttons = document.querySelectorAll('.filter-btn');
-    buttons.forEach(b => b.classList.remove('active'));
-    
     if(exam === 'all'){
-        document.getElementById('all-results').classList.remove('hidden');
-        buttons[0].classList.add('active');
-    } else if(exam === 'python'){
-        exams[0].classList.remove('hidden');
-        buttons[1].classList.add('active');
-    } else if(exam === 'oops'){
-        exams[1].classList.remove('hidden');
-        buttons[2].classList.add('active');
-    } else if(exam === 'webdev'){
-        exams[2].classList.remove('hidden');
-        buttons[3].classList.add('active');
+        const allResults = document.getElementById('all-results');
+        if(allResults){
+            allResults.classList.remove('hidden');
+        }
     }
 }
 
@@ -594,6 +488,7 @@ async function logout(){
         const profileAvatar = document.getElementById('profile-avatar');
         const profileUpload = document.getElementById('profile-upload');
         let currentStudentPhoto = '';
+        let originalStudentUsername = '';
         
         if(profileAvatar && profileUpload){
             profileAvatar.addEventListener('click', () => profileUpload.click());
@@ -648,10 +543,6 @@ async function logout(){
             type();
         }
 
-        // Calculate performance stats
-        const resultsTable = document.querySelector('table');
-        if(!resultsTable) return;
-
         // fetch profile details and populate fields
         async function loadProfile(){
             try{
@@ -659,10 +550,11 @@ async function logout(){
                 if(!res.ok) throw new Error('not logged in');
                 const data = await res.json();
                 console.log('👤 Student profile loaded:', data);
+                originalStudentUsername = data.username || '';
                 document.getElementById('user-name').textContent = data.username;
                 document.getElementById('profile-name').textContent = data.name || '';
                 document.getElementById('profile-roll').textContent = data.roll_number || '';
-                document.getElementById('profile-course').textContent = data.department || '';
+                document.getElementById('profile-course').textContent = (data.department || '').toUpperCase();
                 document.getElementById('profile-email').textContent = data.email || '';
 
         currentStudentId = data.roll_number || data.username; // Store student ID for later use
@@ -679,7 +571,18 @@ async function logout(){
                 document.getElementById('settings-username').value = data.username || '';
                 document.getElementById('settings-roll').value = data.roll_number || '';
                 document.getElementById('settings-email').value = data.email || '';
-                document.getElementById('settings-course').value = data.department || '';
+                const departmentSelect = document.getElementById('settings-course');
+                const departmentValue = (data.department || '').toUpperCase();
+                if (departmentSelect) {
+                    const hasOption = Array.from(departmentSelect.options).some(opt => opt.value === departmentValue);
+                    if (!hasOption && departmentValue) {
+                        const customOption = document.createElement('option');
+                        customOption.value = departmentValue;
+                        customOption.textContent = departmentValue;
+                        departmentSelect.appendChild(customOption);
+                    }
+                    departmentSelect.value = departmentValue;
+                }
                 document.getElementById('settings-phone').value = data.phone || '';
 
                 if(data.photo){
@@ -715,13 +618,44 @@ async function logout(){
         });
 
         window.saveSettings = async function(){
+            const username = document.getElementById('settings-username').value.trim();
+            const rollNumber = document.getElementById('settings-roll').value.trim();
+            const email = document.getElementById('settings-email').value.trim();
+            const phone = document.getElementById('settings-phone').value.trim();
+            const department = document.getElementById('settings-course').value.trim();
+
+            const usernamePattern = /^[a-z]+$/;
+            const emailPattern = /^[a-zA-Z0-9._%+-]+@mgits\.ac\.in$/;
+            const phonePattern = /^\d{10}$/;
+
+            if(username !== originalStudentUsername && !usernamePattern.test(username)){
+                alert('Username must contain only lowercase letters (a-z)');
+                return;
+            }
+            if(!rollNumber){
+                alert('Roll number is required');
+                return;
+            }
+            if(!emailPattern.test(email) || (email.match(/@/g) || []).length !== 1){
+                alert('Email must be a valid @mgits.ac.in address');
+                return;
+            }
+            if(!phonePattern.test(phone)){
+                alert('Phone number must be exactly 10 digits');
+                return;
+            }
+            if(!department){
+                alert('Please select a department');
+                return;
+            }
+
             const payload = {
                 name: document.getElementById('settings-name').value.trim(),
-                username: document.getElementById('settings-username').value.trim(),
-                roll_number: document.getElementById('settings-roll').value.trim(),
-                email: document.getElementById('settings-email').value.trim(),
-                department: document.getElementById('settings-course').value.trim(),
-                phone: document.getElementById('settings-phone').value.trim(),
+                username: username,
+                roll_number: rollNumber,
+                email: email,
+                department: department,
+                phone: phone,
                 photo: currentStudentPhoto
             };
             try{
@@ -730,6 +664,7 @@ async function logout(){
                 });
                 const data = await res.json();
                 if(!res.ok){ alert(data.message||'Update failed'); return; }
+                currentStudentId = rollNumber || username;
                 alert('Profile updated');
                 loadProfile();
             }catch(err){ alert('Error: '+err); }
@@ -751,15 +686,6 @@ async function logout(){
             }catch(err){ alert('Error: '+err); }
         };
 
-        // allow student to manually clear their own results UI
-        window.clearMyResults = function(){
-            if(!currentStudentId){ return; }
-            if(!confirm('Are you sure you want to clear your result section? This will also remove your stored exam attempts.')) return;
-            const key = `student_${currentStudentId}_exams`;
-            localStorage.removeItem(key);
-            document.querySelectorAll('.result-exam').forEach(el=>el.remove());
-            alert('✅ Your result section has been cleared.');
-        };
     });
 })();
 
@@ -818,7 +744,19 @@ async function loadStudentResults() {
         if (!resultsDiv) return;
         document.querySelectorAll('.result-exam').forEach(el => el.remove());
 
-        if (allResultExams.length === 0) return;
+        if (allResultExams.length === 0) {
+            const emptyDiv = document.createElement('div');
+            emptyDiv.className = 'result-exam';
+            emptyDiv.id = 'all-results';
+            emptyDiv.innerHTML = `
+                <div class="card">
+                    <h3 style="color:#5a0f1b; margin-bottom:8px;">Your Exam Results</h3>
+                    <p style="color:#666;">No results available yet.</p>
+                </div>
+            `;
+            resultsDiv.appendChild(emptyDiv);
+            return;
+        }
 
         const allResultsDiv = document.createElement('div');
         allResultsDiv.className = 'result-exam';
@@ -827,16 +765,17 @@ async function loadStudentResults() {
         const tableHTML = allResultExams.map((exam) => {
             const totalQuestions = exam.questions ? exam.questions.length : 0;
             const score = exam.score || 0;
-            const percentage = totalQuestions > 0 ? Math.round((score / totalQuestions) * 100) : 0;
-            const statusText = exam.missed ? 'Missed' : 'DONE';
-            const statusColor = exam.missed ? '#ff6b6b' : '#27ae60';
-            const viewLink = exam.missed ? '' : `<button onclick="viewExamDetails('${exam.id}')" style="background:#5a0f1b; color:white; padding:5px 12px; border:none; border-radius:4px; cursor:pointer;">View</button>`;
+            const statusBadge = exam.missed
+                ? '<span style="display:inline-block; background:#ff6b6b; color:#fff; padding:4px 10px; border-radius:999px; font-weight:800; font-size:12px; letter-spacing:0.4px;">MISSED</span>'
+                : '<span style="display:inline-block; background:#27ae60; color:#fff; padding:4px 10px; border-radius:999px; font-weight:800; font-size:12px; letter-spacing:0.4px;">DONE</span>';
+            const viewLink = `<button onclick="viewExamDetails('${exam.id}')" style="background:#5a0f1b; color:white; padding:5px 12px; border:none; border-radius:4px; cursor:pointer;">View</button>`;
+            const examDate = exam.startTime ? new Date(exam.startTime).toLocaleDateString() : '--';
             return `
                 <tr>
                     <td>${exam.name}</td>
-                    <td>${new Date(exam.startTime).toLocaleDateString()}</td>
+                    <td>${examDate}</td>
                     <td>${exam.missed ? '--' : `${score} / ${totalQuestions}`}</td>
-                    <td style="color:${statusColor}; font-weight:700;">${statusText}</td>
+                    <td>${statusBadge}</td>
                     <td>${viewLink}</td>
                 </tr>
             `;
@@ -970,11 +909,11 @@ function viewExamDetails(examId) {
     const percentage = totalQuestions > 0 ? Math.round((score / totalQuestions) * 100) : 0;
 
     let detailsHTML = `
-        <div style="background:#f0fdf4; padding:20px; border-radius:8px; margin-bottom:20px; border-left:4px solid #27ae60;">
+        <div style="background:${exam.missed ? '#fef2f2' : '#f0fdf4'}; padding:20px; border-radius:8px; margin-bottom:20px; border-left:4px solid ${exam.missed ? '#ff6b6b' : '#27ae60'};">
             <h3 style="color:#5a0f1b; margin-top:0;">📋 Exam: ${exam.name}</h3>
             <p><b>Test Date:</b> ${new Date(exam.startTime).toLocaleString()}</p>
-            <p><b>Your Score:</b> <span style="color:#27ae60; font-weight:700; font-size:18px;">${score} / ${totalQuestions}</span> (${percentage}%)</p>
-            <p><b>Status:</b> <span style="color:${exam.missed ? '#ff6b6b' : '#27ae60'}; font-weight:700; font-size:16px;">${exam.missed ? 'MISSED' : 'DONE'}</span></p>
+            <p><b>Your Score:</b> <span style="color:${exam.missed ? '#ff6b6b' : '#27ae60'}; font-weight:700; font-size:18px;">${exam.missed ? '--' : `${score} / ${totalQuestions}`}</span> ${exam.missed ? '' : `(${percentage}%)`}</p>
+            <p><b>Status:</b> <span style="display:inline-block; background:${exam.missed ? '#ff6b6b' : '#27ae60'}; color:#fff; font-weight:800; font-size:12px; letter-spacing:0.4px; padding:4px 10px; border-radius:999px;">${exam.missed ? 'MISSED' : 'DONE'}</span></p>
         </div>
     `;
 
@@ -985,10 +924,10 @@ function viewExamDetails(examId) {
         const formattedTeacherAnswer = formatMultilineText(teacherAnswer);
         const formattedStudentAnswer = studentAnswer ? formatMultilineText(studentAnswer) : '<em style="color:#999;">(Not answered)</em>';
         const isCorrect = (exam.questionResults || [])[idx] === true;
-        const borderColor = isCorrect ? '#27ae60' : '#ff6b6b';
-        const bgColor = isCorrect ? '#f0fdf4' : '#fef2f2';
-        const statusText = isCorrect ? '✓ CORRECT' : '✗ WRONG';
-        const statusColor = isCorrect ? '#27ae60' : '#ff6b6b';
+        const borderColor = exam.missed ? '#ff9800' : (isCorrect ? '#27ae60' : '#ff6b6b');
+        const bgColor = exam.missed ? '#fff7e6' : (isCorrect ? '#f0fdf4' : '#fef2f2');
+        const statusText = exam.missed ? '⚠ NOT ATTEMPTED' : (isCorrect ? '✓ CORRECT' : '✗ WRONG');
+        const statusColor = exam.missed ? '#ff9800' : (isCorrect ? '#27ae60' : '#ff6b6b');
         detailsHTML += `
             <div style="padding:15px; background:${bgColor}; border-radius:8px; border-left:4px solid ${borderColor}; margin-bottom:15px;">
                 <p style="margin:0 0 10px 0; font-weight:600; color:#333;"><b>Q${idx + 1}:</b> ${formattedQuestion}</p>
@@ -1006,20 +945,6 @@ function viewExamDetails(examId) {
     detailsDiv.innerHTML = `<div class="card"><button onclick="closeExamDetails()" style="background:#999; color:white; padding:8px 15px; margin-bottom:15px; border:none; border-radius:5px; cursor:pointer; font-weight:600;">← Back to Results</button>${detailsHTML}</div>`;
     resultsSection.appendChild(detailsDiv);
 }
-
-window.clearMyResults = async function(){
-    if(!confirm('Are you sure you want to clear your result section?')) return;
-    try {
-        const res = await fetch('/api/student/results/clear', { method:'POST', credentials:'same-origin' });
-        const data = await res.json();
-        if(!res.ok){ alert(data.message || 'Failed to clear'); return; }
-        await loadStudentExams();
-        await loadStudentResults();
-        alert('✅ Your results were cleared.');
-    } catch (err) {
-        alert('Failed to clear results');
-    }
-};
 
 // AUTO-REFRESH EXAM LIST ON STUDENT SIDE
 // Periodically reload the exam list to catch newly activated exams
