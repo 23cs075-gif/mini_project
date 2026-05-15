@@ -625,7 +625,7 @@ async function logout(){
             const department = document.getElementById('settings-course').value.trim();
 
             const usernamePattern = /^[a-z]+$/;
-            const emailPattern = /^[a-zA-Z0-9._%+-]+@mgits\.ac\.in$/;
+            const emailPattern = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
             const phonePattern = /^\d{10}$/;
 
             if(username !== originalStudentUsername && !usernamePattern.test(username)){
@@ -637,7 +637,7 @@ async function logout(){
                 return;
             }
             if(!emailPattern.test(email) || (email.match(/@/g) || []).length !== 1){
-                alert('Email must be a valid @mgits.ac.in address');
+                alert('Email must be a valid email address');
                 return;
             }
             if(!phonePattern.test(phone)){

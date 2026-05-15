@@ -1,4 +1,6 @@
 import os
+import smtplib
+import ssl
 from flask import Flask, request, jsonify, session, redirect
 from config import Config
 from extensions import db
@@ -6,6 +8,8 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime, timedelta
 import re
+import secrets
+from email.mime.text import MIMEText
 from sentence_transformers import SentenceTransformer, util
 from transformers import pipeline
 
@@ -30,16 +34,15 @@ def app_now():
     return datetime.utcnow() + timedelta(minutes=APP_TIMEZONE_OFFSET_MINUTES)
 
 
-def _is_valid_mgits_email(email: str) -> bool:
+def _is_valid_email(email: str) -> bool:
     if not email:
         return False
-    if email.count('@') != 1:
-        return False
-    return re.match(r'^[a-zA-Z0-9._%+-]+@mgits\.ac\.in$', email) is not None
+    return re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', email) is not None
 
 
 def _is_valid_phone(phone: str) -> bool:
     return re.match(r'^\d{10}$', phone or '') is not None
+
 
 def normalize(code: str) -> str:
     code = re.sub(r'#.*', '', code)
@@ -150,6 +153,7 @@ def create_app():
     # modification to its relative URLs.
     app = Flask(__name__, static_folder='.', static_url_path='')
     app.config.from_object(Config)
+    app.logger.info(f"MAIL_USERNAME loaded: {'yes' if app.config.get('MAIL_USERNAME') else 'no'}")
     # set secret key for session
     app.secret_key = app.config.get('SECRET_KEY')
 
@@ -294,8 +298,8 @@ def create_app():
             phone = str(data.get('phone', '')).strip()
             department = str(data.get('department', '')).strip().upper()
 
-            if not _is_valid_mgits_email(email):
-                return jsonify(message='Email must be a valid @mgits.ac.in address'), 400
+            if not _is_valid_email(email):
+                return jsonify(message='Email must be a valid email address'), 400
             if not _is_valid_phone(phone):
                 return jsonify(message='Phone number must be exactly 10 digits'), 400
             if department not in VALID_DEPARTMENTS:
@@ -345,11 +349,8 @@ def create_app():
 # -------------------------
         email = data.get('email', '').strip()
 
-        if not re.match(r'^[a-zA-Z0-9._%+-]+@mgits\.ac\.in$', email):
-            return jsonify(message='Email must be a valid @mgits.ac.in address'), 400
-
-        if email.count('@') != 1:
-            return jsonify(message='Email must contain only one @ symbol'), 400
+        if not _is_valid_email(email):
+            return jsonify(message='Email must be a valid email address'), 400
     @app.route('/api/student/login', methods=['POST'])
     def student_login():
         try:
@@ -409,8 +410,8 @@ def create_app():
                 data['username'] = username
             if 'email' in data:
                 email = str(data.get('email', '')).strip()
-                if not _is_valid_mgits_email(email):
-                    return jsonify(message='Email must be a valid @mgits.ac.in address'), 400
+                if not _is_valid_email(email):
+                    return jsonify(message='Email must be a valid email address'), 400
                 data['email'] = email
             if 'phone' in data:
                 phone = str(data.get('phone', '')).strip()
@@ -467,6 +468,146 @@ def create_app():
             app.logger.error(f"Change password error: {e}")
             return jsonify(message='password change failed'), 500
 
+    # -------------------- OTP Forgot / Reset Password --------------------
+    def _otp_expiry_minutes():
+        return 10
+
+    def _generate_otp():
+        return f"{secrets.randbelow(1000000):06d}"
+
+    def send_otp_email(email: str, otp: str):
+        """Send a plain-text OTP email through Gmail SMTP.
+
+        Gmail App Password setup:
+        1. Enable 2-Step Verification on your Google account.
+        2. Open https://myaccount.google.com/apppasswords
+        3. Create an App Password for Mail.
+        4. Put the generated 16-character password in MAIL_PASSWORD.
+        """
+        username = app.config.get('MAIL_USERNAME')
+        password = app.config.get('MAIL_PASSWORD')
+        sender = app.config.get('MAIL_DEFAULT_SENDER') or username
+
+        app.logger.info(f"OTP email sending started for: {email}")
+
+        if not username or not password:
+            app.logger.error('MAIL_USERNAME or MAIL_PASSWORD is not configured')
+            return False
+
+        if not sender or '@' not in sender:
+            app.logger.error('MAIL_DEFAULT_SENDER must be a valid email address')
+            return False
+
+        subject = 'Password Reset OTP'
+        body = (
+            f'Your OTP for password reset is: {otp}\n\n'
+            'This OTP will expire in 10 minutes.\n\n'
+            'If you did not request this, ignore this email.'
+        )
+
+        message = MIMEText(body, 'plain')
+        message['Subject'] = subject
+        message['From'] = sender
+        message['To'] = email
+
+        try:
+            app.logger.info('Connecting to Gmail SMTP...')
+            context = ssl.create_default_context()
+            with smtplib.SMTP(app.config.get('MAIL_SERVER', 'smtp.gmail.com'), app.config.get('MAIL_PORT', 587)) as server:
+                server.ehlo()
+                server.starttls(context=context)
+                server.ehlo()
+                server.login(username, password)
+                server.sendmail(sender, [email], message.as_string())
+            app.logger.info(f'OTP email sent successfully to {email}')
+            return True
+        except smtplib.SMTPAuthenticationError as exc:
+            app.logger.error(f'Gmail SMTP authentication failed: {exc}')
+            return False
+        except smtplib.SMTPException as exc:
+            app.logger.error(f'Gmail SMTP error while sending OTP to {email}: {exc}')
+            return False
+        except Exception as exc:
+            app.logger.error(f'Unexpected email sending error for {email}: {exc}')
+            return False
+
+    def _find_user_by_email(email: str):
+        student = Student.query.filter_by(email=email).first()
+        if student:
+            return student
+        teacher = Teacher.query.filter_by(email=email).first()
+        if teacher:
+            return teacher
+        return None
+
+    @app.route('/api/send-otp', methods=['POST'])
+    def send_otp():
+        """Generate a 6-digit OTP and send it to the entered email."""
+        try:
+            data = request.get_json() or {}
+            email = (data.get('email') or '').strip().lower()
+            if not _is_valid_email(email):
+                return jsonify(success=False, message='Invalid email'), 400
+
+            user = _find_user_by_email(email)
+            otp = _generate_otp()
+            expiry = datetime.utcnow() + timedelta(minutes=_otp_expiry_minutes())
+            app.logger.info(f"OTP generated for: {email}")
+
+            if user:
+                user.otp_code = otp
+                user.otp_expiry = expiry
+                db.session.commit()
+                app.logger.info('OTP stored successfully')
+            else:
+                app.logger.info('No matching account found; sending OTP email anyway')
+
+            sent = send_otp_email(email, otp)
+            if not sent:
+                if user:
+                    user.otp_code = None
+                    user.otp_expiry = None
+                    db.session.commit()
+                return jsonify(success=False, message='OTP could not be sent'), 500
+            return jsonify(success=True, message='OTP sent successfully'), 200
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Email sending failure: {e}")
+            return jsonify(success=False, message='OTP could not be sent'), 500
+
+    @app.route('/api/verify-otp', methods=['POST'])
+    def verify_otp():
+        """Verify OTP and update the password for either a student or teacher."""
+        try:
+            data = request.get_json() or {}
+            email = (data.get('email') or '').strip().lower()
+            otp = (data.get('otp') or '').strip()
+            password = (data.get('password') or '').strip()
+
+            if not _is_valid_email(email):
+                return jsonify(success=False, message='Invalid email'), 400
+            if not re.match(r'^\d{6}$', otp):
+                return jsonify(success=False, message='Invalid or expired OTP'), 400
+            if len(password) < 6:
+                return jsonify(success=False, message='Password must be at least 6 characters'), 400
+
+            user = _find_user_by_email(email)
+            if not user or not user.otp_code or not user.otp_expiry:
+                return jsonify(success=False, message='Invalid or expired OTP'), 400
+
+            if user.otp_code != otp or user.otp_expiry < datetime.utcnow():
+                return jsonify(success=False, message='Invalid or expired OTP'), 400
+
+            user.set_password(password)
+            user.otp_code = None
+            user.otp_expiry = None
+            db.session.commit()
+            return jsonify(success=True, message='Password updated successfully'), 200
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"OTP verification error: {e}")
+            return jsonify(success=False, message='Invalid or expired OTP'), 400
+
     # ------------------------------------------------------------------
     # teacher authentication/api endpoints
     # ------------------------------------------------------------------
@@ -488,8 +629,8 @@ def create_app():
             phone = str(data.get('phone', '')).strip()
             department = str(data.get('department', '')).strip().upper()
 
-            if not _is_valid_mgits_email(email):
-                return jsonify(message='Email must be a valid @mgits.ac.in address'), 400
+            if not _is_valid_email(email):
+                return jsonify(message='Email must be a valid email address'), 400
             if not _is_valid_phone(phone):
                 return jsonify(message='Phone number must be exactly 10 digits'), 400
             if department not in VALID_DEPARTMENTS:
@@ -572,8 +713,8 @@ def create_app():
                 data['username'] = username
             if 'email' in data:
                 email = str(data.get('email', '')).strip()
-                if not _is_valid_mgits_email(email):
-                    return jsonify(message='Email must be a valid @mgits.ac.in address'), 400
+                if not _is_valid_email(email):
+                    return jsonify(message='Email must be a valid email address'), 400
                 data['email'] = email
             if 'phone' in data:
                 phone = str(data.get('phone', '')).strip()
@@ -1237,21 +1378,29 @@ def create_tables(app=None):
             insp = inspect(db.engine)
             if 'student' in insp.get_table_names():
                 cols = {c['name'] for c in insp.get_columns('student')}
-                with db.engine.connect() as conn:
+                with db.engine.begin() as conn:
                     if 'roll_number' not in cols:
-                        conn.execute(text('ALTER TABLE student ADD COLUMN roll_number VARCHAR(50) UNIQUE'))
+                        conn.execute(text('ALTER TABLE student ADD COLUMN roll_number VARCHAR(50)'))
                     if 'semester' not in cols:
                         conn.execute(text('ALTER TABLE student ADD COLUMN semester VARCHAR(20)'))
                     if 'photo' not in cols:
                         conn.execute(text('ALTER TABLE student ADD COLUMN photo TEXT'))
+                    if 'otp_code' not in cols:
+                        conn.execute(text('ALTER TABLE student ADD COLUMN otp_code VARCHAR(6)'))
+                    if 'otp_expiry' not in cols:
+                        conn.execute(text('ALTER TABLE student ADD COLUMN otp_expiry DATETIME'))
             if 'teacher' in insp.get_table_names():
                 tcols = {c['name'] for c in insp.get_columns('teacher')}
-                with db.engine.connect() as conn:
+                with db.engine.begin() as conn:
                     if 'photo' not in tcols:
                         conn.execute(text('ALTER TABLE teacher ADD COLUMN photo TEXT'))
+                    if 'otp_code' not in tcols:
+                        conn.execute(text('ALTER TABLE teacher ADD COLUMN otp_code VARCHAR(6)'))
+                    if 'otp_expiry' not in tcols:
+                        conn.execute(text('ALTER TABLE teacher ADD COLUMN otp_expiry DATETIME'))
             if 'question' in insp.get_table_names():
                 qcols = {c['name'] for c in insp.get_columns('question')}
-                with db.engine.connect() as conn:
+                with db.engine.begin() as conn:
                     if 'question_type' not in qcols:
                         conn.execute(text("ALTER TABLE question ADD COLUMN question_type VARCHAR(30) DEFAULT 'direct'"))
         except Exception as exc:

@@ -11,6 +11,8 @@ class Student(db.Model):
     username = db.Column(db.String(50), unique=True)
     email = db.Column(db.String(100), unique=True)
     password = db.Column(db.String(200))
+    otp_code = db.Column(db.String(6), nullable=True)
+    otp_expiry = db.Column(db.DateTime, nullable=True)
     # admission / roll number – shown as "Admission No" on dashboard
     roll_number = db.Column(db.String(50), unique=True)
     semester = db.Column(db.String(20))
@@ -34,6 +36,8 @@ class Teacher(db.Model):
     username = db.Column(db.String(50), unique=True)
     email = db.Column(db.String(100), unique=True)
     password = db.Column(db.String(200))
+    otp_code = db.Column(db.String(6), nullable=True)
+    otp_expiry = db.Column(db.DateTime, nullable=True)
     department = db.Column(db.String(50))
     phone = db.Column(db.String(20))
     photo = db.Column(db.Text)  # base64 or URL

@@ -49,6 +49,10 @@
        required>
     <input id="login-password" type="password" placeholder="🔒 Password" required>
 
+    <div style="margin:-6px 0 14px; text-align:right;">
+      <a href="forgot-password.html" style="font-size:13px; color:#5a0f1b; font-weight:600; text-decoration:none;">Forgot Password?</a>
+    </div>
+
     <button class="btn" onclick="login();">
       <i class="fas fa-sign-in-alt"></i> Login
     </button>
@@ -80,7 +84,7 @@
        title="Only small letters & numbers"
        required>
 
-          <input id="reg-email" type="email" placeholder="Email (@mgits.ac.in)">
+          <input id="reg-email" type="email" placeholder="Email address">
 
             <input id="reg-password" type="password" placeholder="Password">
             <select id="reg-department">
@@ -147,10 +151,10 @@ async function registerTeacher(){
     return;
   }
 
-  const emailPattern = /^[a-zA-Z0-9._%+-]+@mgits\.ac\.in$/;
+  const emailPattern = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
   if(!emailPattern.test(email)){
-    alert("Only MGITS email IDs (@mgits.ac.in) are allowed!");
+    alert("Enter a valid email address");
     return;
   }
 

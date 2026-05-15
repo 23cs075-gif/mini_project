@@ -44,6 +44,10 @@
     <input id="login-username" type="text" placeholder="📚 Username" required>
     <input id="login-password" type="password" placeholder="🔒 Password" required>
 
+    <div style="margin:-6px 0 14px; text-align:right;">
+      <a href="forgot-password.html" style="font-size:13px; color:#5a0f1b; font-weight:600; text-decoration:none;">Forgot Password?</a>
+    </div>
+
     <button class="btn" onclick="login();">
       <i class="fas fa-sign-in-alt"></i> Login
     </button>
@@ -190,10 +194,10 @@ async function registerStudent(){
   }
 
   // Email validation
-const emailPattern = /^[a-zA-Z0-9._%+-]+@mgits\.ac\.in$/;
+  const emailPattern = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 if(!emailPattern.test(email)){
-  alert('Email must be a valid @mgits.ac.in address');
+  alert('Email must be a valid email address');
   return;
 }
 
