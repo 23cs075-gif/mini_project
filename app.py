@@ -475,20 +475,13 @@ def create_app():
     def _generate_otp():
         return f"{secrets.randbelow(1000000):06d}"
 
-    def send_otp_email(email: str, otp: str):
-        """Send a plain-text OTP email through Gmail SMTP.
-
-        Gmail App Password setup:
-        1. Enable 2-Step Verification on your Google account.
-        2. Open https://myaccount.google.com/apppasswords
-        3. Create an App Password for Mail.
-        4. Put the generated 16-character password in MAIL_PASSWORD.
-        """
+    def _send_smtp_email(email: str, subject: str, body: str):
+        """Send a plain-text email through Gmail SMTP."""
         username = app.config.get('MAIL_USERNAME')
         password = app.config.get('MAIL_PASSWORD')
         sender = app.config.get('MAIL_DEFAULT_SENDER') or username
 
-        app.logger.info(f"OTP email sending started for: {email}")
+        app.logger.info(f"SMTP email sending started for: {email}")
 
         if not username or not password:
             app.logger.error('MAIL_USERNAME or MAIL_PASSWORD is not configured')
@@ -497,13 +490,6 @@ def create_app():
         if not sender or '@' not in sender:
             app.logger.error('MAIL_DEFAULT_SENDER must be a valid email address')
             return False
-
-        subject = 'Password Reset OTP'
-        body = (
-            f'Your OTP for password reset is: {otp}\n\n'
-            'This OTP will expire in 10 minutes.\n\n'
-            'If you did not request this, ignore this email.'
-        )
 
         message = MIMEText(body, 'plain')
         message['Subject'] = subject
@@ -519,17 +505,46 @@ def create_app():
                 server.ehlo()
                 server.login(username, password)
                 server.sendmail(sender, [email], message.as_string())
-            app.logger.info(f'OTP email sent successfully to {email}')
+            app.logger.info(f'SMTP email sent successfully to {email}')
             return True
         except smtplib.SMTPAuthenticationError as exc:
             app.logger.error(f'Gmail SMTP authentication failed: {exc}')
             return False
         except smtplib.SMTPException as exc:
-            app.logger.error(f'Gmail SMTP error while sending OTP to {email}: {exc}')
+            app.logger.error(f'Gmail SMTP error while sending email to {email}: {exc}')
             return False
         except Exception as exc:
             app.logger.error(f'Unexpected email sending error for {email}: {exc}')
             return False
+
+    def send_otp_email(email: str, otp: str):
+        """Send a plain-text OTP email through Gmail SMTP.
+
+        Gmail App Password setup:
+        1. Enable 2-Step Verification on your Google account.
+        2. Open https://myaccount.google.com/apppasswords
+        3. Create an App Password for Mail.
+        4. Put the generated 16-character password in MAIL_PASSWORD.
+        """
+        app.logger.info(f"OTP email sending started for: {email}")
+
+        body = (
+            f'Your OTP for password reset is: {otp}\n\n'
+            'This OTP will expire in 10 minutes.\n\n'
+            'If you did not request this, ignore this email.'
+        )
+
+        return _send_smtp_email(email, 'Password Reset OTP', body)
+
+    def send_username_email(email: str, username_text: str):
+        """Send a username recovery email through Gmail SMTP."""
+        app.logger.info(f"Username email sending started for: {email}")
+        body = (
+            'Your username for the Student Management System is:\n\n'
+            f'{username_text}\n\n'
+            'If you did not request this email, please ignore it.'
+        )
+        return _send_smtp_email(email, 'Username Recovery', body)
 
     def _find_user_by_email(email: str):
         student = Student.query.filter_by(email=email).first()
@@ -607,6 +622,33 @@ def create_app():
             db.session.rollback()
             app.logger.error(f"OTP verification error: {e}")
             return jsonify(success=False, message='Invalid or expired OTP'), 400
+
+    @app.route('/api/forgot-username', methods=['POST'])
+    def forgot_username():
+        """Send the username to the entered email if a matching account exists."""
+        try:
+            data = request.get_json() or {}
+            email = (data.get('email') or '').strip().lower()
+            if not _is_valid_email(email):
+                return jsonify(success=False, message='Invalid email'), 400
+
+            app.logger.info(f'Username recovery requested for: {email}')
+
+            user = Student.query.filter_by(email=email).first()
+            if not user:
+                user = Teacher.query.filter_by(email=email).first()
+
+            if user and user.username:
+                sent = send_username_email(email, user.username)
+                if sent:
+                    app.logger.info('Username email sent successfully')
+                else:
+                    app.logger.error('Username email failed')
+
+            return jsonify(success=True, message='If the email exists, the username has been sent.'), 200
+        except Exception as e:
+            app.logger.error(f'Username recovery error: {e}')
+            return jsonify(success=True, message='If the email exists, the username has been sent.'), 200
 
     # ------------------------------------------------------------------
     # teacher authentication/api endpoints
