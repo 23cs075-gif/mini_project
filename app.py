@@ -156,6 +156,9 @@ def create_app():
     app.logger.info(f"MAIL_USERNAME loaded: {'yes' if app.config.get('MAIL_USERNAME') else 'no'}")
     # set secret key for session
     app.secret_key = app.config.get('SECRET_KEY')
+    # strengthen session cookie defaults for safety
+    app.config.setdefault('SESSION_COOKIE_HTTPONLY', True)
+    app.config.setdefault('SESSION_COOKIE_SAMESITE', 'Lax')
 
     # initialize extensions with the app
     db.init_app(app)
@@ -374,6 +377,18 @@ def create_app():
     def student_logout():
         session.pop('student_id', None)
         return jsonify(message='logged out')
+
+    @app.after_request
+    def add_security_headers(response):
+        # Prevent caching of authenticated pages so browser Back can't show stale protected pages
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0, private'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        # Some additional security headers
+        response.headers.setdefault('X-Content-Type-Options', 'nosniff')
+        response.headers.setdefault('X-Frame-Options', 'DENY')
+        response.headers.setdefault('Referrer-Policy', 'no-referrer-when-downgrade')
+        return response
 
     @app.route('/api/student/me', methods=['GET'])
     def student_me():

@@ -9,6 +9,19 @@
     <link rel="stylesheet" href="teach.css">
 </head>
 <body>
+<script>
+// Prevent showing protected content from bfcache/back navigation.
+// Hide page until we validate the teacher session; if invalid, redirect to login.
+(function(){
+    document.documentElement.style.visibility = 'hidden';
+    // pageshow: if page restored from bfcache, force a revalidation
+    window.addEventListener('pageshow', function(e){ if(e.persisted) location.reload(); });
+    fetch('/api/teacher/me', { credentials: 'same-origin' }).then(function(res){
+        if(res.ok){ document.documentElement.style.visibility = ''; }
+        else { window.location.replace('admin portal.html'); }
+    }).catch(function(){ window.location.replace('admin portal.html'); });
+})();
+</script>
 
 <!-- ===== TOP BAR ===== -->
 <div class="topbar">

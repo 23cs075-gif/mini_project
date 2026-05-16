@@ -118,6 +118,17 @@
 </head>
 
 <body>
+<script>
+// Prevent showing protected content from bfcache/back navigation for teacher exam page.
+(function(){
+    document.documentElement.style.visibility = 'hidden';
+    window.addEventListener('pageshow', function(e){ if(e.persisted) location.reload(); });
+    fetch('/api/teacher/me', { credentials: 'same-origin' }).then(function(res){
+        if(res.ok){ document.documentElement.style.visibility = ''; }
+        else { window.location.replace('admin portal.html'); }
+    }).catch(function(){ window.location.replace('admin portal.html'); });
+})();
+</script>
 
 <div class="container" style="position:relative;">
     <a href="teach.html" style="position:absolute; top:20px; left:20px; padding:10px 15px; background:#c40000; color:white; text-decoration:none; border-radius:6px; font-size:14px; display:flex; align-items:center; gap:8px; z-index:100; cursor:pointer; transition:0.3s ease;" onmouseover="this.style.background='#990000';" onmouseout="this.style.background='#c40000';" title="Back to teacher dashboard">

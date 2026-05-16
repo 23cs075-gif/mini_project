@@ -148,6 +148,18 @@
 </head>
 
 <body>
+<script>
+// Prevent showing protected content from bfcache/back navigation.
+// Hide page until we validate the student session; if invalid, redirect to login.
+(function(){
+    document.documentElement.style.visibility = 'hidden';
+    window.addEventListener('pageshow', function(e){ if(e.persisted) location.reload(); });
+    fetch('/api/student/me', { credentials: 'same-origin' }).then(function(res){
+        if(res.ok){ document.documentElement.style.visibility = ''; }
+        else { window.location.replace('student portal.html'); }
+    }).catch(function(){ window.location.replace('student portal.html'); });
+})();
+</script>
 <div class="topbar">
     <!-- Back link removed from topbar -->
     <h2>Smart Evaluation System</h2>
