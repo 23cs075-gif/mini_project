@@ -282,6 +282,27 @@ function validateUsername(inputId){
 validateUsername('reg-username');
 validateUsername('login-username');
 </script>
+</script>
+
+<script>
+// Hide scrollbar when content fits the viewport to prevent initial mobile scrollbar flash
+function adjustInitialScrollbar(){
+  function update(){
+    try{
+      if(document.documentElement.scrollHeight <= window.innerHeight){
+        document.documentElement.style.overflow = 'hidden';
+      } else {
+        document.documentElement.style.overflow = '';
+      }
+    }catch(e){}
+  }
+  window.addEventListener('resize', update);
+  window.addEventListener('pageshow', update);
+  document.addEventListener('DOMContentLoaded', update);
+  setTimeout(update, 250);
+}
+adjustInitialScrollbar();
+</script>
 
 </body>
 </html>
