@@ -63,6 +63,7 @@ body{
     z-index:999;
 }
 /* removed minimized sidebar rules (minimize option not needed) */
+/* sidebar-left/sidebar-user helper classes removed to restore original layout */
 .sidebar a{
     display:inline-flex;
     padding:8px 12px;
@@ -178,6 +179,11 @@ footer{
         flex:1;
         text-align:center;
     }
+    .sidebar-user{
+        margin-left:0;
+        width:100%;
+        justify-content:flex-end;
+    }
 }
 
 /* ===== HIDDEN CLASS ===== */
@@ -230,12 +236,6 @@ input[type="password"]:focus{
     box-shadow:0 0 8px rgba(90,15,27,0.1);
 }
 
-/* topbar icons and menu highlight additions */
-.topbar .icons{
-    display:flex;
-    align-items:center;
-    gap:18px; /* more space between icons */
-}
 .icon-btn{
     display:inline-flex;
     align-items:center;
@@ -249,6 +249,16 @@ input[type="password"]:focus{
 }
 .icon-btn:hover{
     background:rgba(255,255,255,0.12);
+}
+
+.user-btn{
+    background:#f8f3f2;
+    color:#5a0f1b;
+    border:1px solid #eadfdc;
+}
+
+.user-btn:hover{
+    background:#f1e7e5;
 }
 
 /* highlight the MENU heading */
