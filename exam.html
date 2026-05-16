@@ -2,6 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Smart Evaluation System - Teacher Exam Setup</title>
 
     <style>
@@ -114,6 +115,23 @@
             margin-top: 20px;
         }
 
+        /* Responsive adjustments for mobile */
+        @media (max-width: 700px) {
+            .container {
+                width: 95%;
+                margin: 18px auto;
+                padding: 16px;
+            }
+            h2 { font-size: 18px; }
+            #examInfo { font-size: 14px; padding: 8px; }
+            .question-box { padding: 14px; margin: 14px 0; }
+            .question-box h3 { font-size: 16px; }
+            input, textarea, select { font-size: 14px; }
+            .button-group { text-align: stretch; }
+            .btn-primary, .btn-secondary { width: 100%; padding: 12px; display: block; }
+            .exam-back-link { display: none !important; }
+        }
+
     </style>
 </head>
 
@@ -131,7 +149,7 @@
 </script>
 
 <div class="container" style="position:relative;">
-    <a href="teach.html" style="position:absolute; top:20px; left:20px; padding:10px 15px; background:#c40000; color:white; text-decoration:none; border-radius:6px; font-size:14px; display:flex; align-items:center; gap:8px; z-index:100; cursor:pointer; transition:0.3s ease;" onmouseover="this.style.background='#990000';" onmouseout="this.style.background='#c40000';" title="Back to teacher dashboard">
+    <a href="teach.html" class="exam-back-link" style="position:absolute; top:20px; left:20px; padding:10px 15px; background:#c40000; color:white; text-decoration:none; border-radius:6px; font-size:14px; display:flex; align-items:center; gap:8px; z-index:100; cursor:pointer; transition:0.3s ease;" onmouseover="this.style.background='#990000';" onmouseout="this.style.background='#c40000';" title="Back to teacher dashboard">
         <i class="fas fa-arrow-left"></i> Back
     </a>
 

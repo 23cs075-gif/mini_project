@@ -2,11 +2,22 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Smart Evaluation System | Teacher Dashboard</title>
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link rel="stylesheet" href="dashboard.css">
     <link rel="stylesheet" href="teach.css">
+    <style>
+        /* Desktop-only picker: hide on small screens, show on desktop */
+        .desktop-only{display:none}
+        .mobile-only{display:block}
+        @media(min-width:701px){
+            .desktop-only{display:block}
+            .mobile-only{display:none}
+            .picker-popover{position:absolute; background:#fff; border:1px solid #ddd; box-shadow:0 6px 18px rgba(0,0,0,0.08); padding:10px; border-radius:8px; z-index:9999; max-height:260px; overflow:auto}
+        }
+    </style>
 </head>
 <body>
 <script>
@@ -25,7 +36,7 @@
 
 <!-- ===== TOP BAR ===== -->
 <div class="topbar">
-    <!-- Back link removed from topbar -->
+    <button id="mobileMenuBtn" class="mobile-menu-btn" aria-label="Menu"><i class="fas fa-bars"></i></button>
     <h2>Smart Evaluation System</h2>
     <div class="icons">
         <button class="icon-btn"><i class="fas fa-user-circle"></i></button>
@@ -147,6 +158,31 @@
 </div>
 </div>
 
+<script>
+function setupMobileSidebar(){
+    const btn = document.getElementById('mobileMenuBtn');
+    const sidebar = document.getElementById('sidebar');
+    if(!btn || !sidebar) return;
+    btn.addEventListener('click', function(){
+        const open = sidebar.classList.toggle('open');
+        document.body.style.overflow = open ? 'hidden' : '';
+    });
+    sidebar.addEventListener('click', function(e){
+        if(e.target.closest('a')){
+            sidebar.classList.remove('open');
+            document.body.style.overflow = '';
+        }
+    });
+    document.addEventListener('keydown', function(e){
+        if(e.key === 'Escape'){
+            sidebar.classList.remove('open');
+            document.body.style.overflow = '';
+        }
+    });
+}
+document.addEventListener('DOMContentLoaded', setupMobileSidebar);
+</script>
+
 
 <!-- STUDENTS -->
 <div id="students" class="section">
@@ -179,7 +215,7 @@
     <div class="section-title">Exams Management</div>
     
     <!-- TAB NAVIGATION -->
-    <div style="margin-bottom:20px; display:flex; gap:10px; flex-wrap:wrap;">
+    <div class="exam-tabs" style="margin-bottom:20px; display:flex; gap:10px; flex-wrap:wrap;">
         <button onclick="switchExamTab('view')" class="exam-tab-btn active" id="tab-view">View Exams</button>
         <button onclick="switchExamTab('create')" class="exam-tab-btn" id="tab-create">Create Exam</button>
         <button onclick="switchExamTab('report')" class="exam-tab-btn" id="tab-report">Exam Report</button>
@@ -212,18 +248,34 @@
 
                 <!-- Select Students -->
                 <!-- Filters: Batch (email prefix) + Department -->
-<div style="display:flex; gap:15px; flex-wrap:wrap; margin-bottom:10px;">
-    <div>
+<div style="display:flex; gap:15px; flex-wrap:wrap; margin-bottom:10px; align-items:flex-start; position:relative;">
+    <div style="flex:1; min-width:220px; position:relative;">
         <label style="font-weight:600;">Filter by Batch:</label><br>
-        <select id="batchFilter" onchange="filterStudents()" style="padding:8px; border:1px solid #ddd; border-radius:6px; margin-top:4px;">
-            <option value="all">All Batches</option>
+        <select id="batchFilter" multiple size="4" onchange="filterStudents()" class="mobile-only" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; margin-top:4px; min-height:120px;">
+            <option value="all" selected>All Batches</option>
         </select>
+        <div class="desktop-only" style="margin-top:6px;">
+            <button type="button" onclick="togglePicker('batch')" style="padding:8px 12px; border-radius:6px; border:1px solid #ddd; background:#fff; cursor:pointer;">Choose Batches</button>
+            <div id="batchPicker" class="picker-popover desktop-only" style="display:none; left:0; top:44px;">
+                <div id="batchPickerList"></div>
+                <div style="text-align:right; margin-top:8px;"><button type="button" onclick="applyPickers()" style="padding:8px 12px; border-radius:6px; background:#5a0f1b; color:#fff; border:none;">Select</button></div>
+            </div>
+        </div>
+        <small style="display:block; margin-top:6px; color:#777;">Use Ctrl/Cmd or touch selections to pick multiple batches.</small>
     </div>
-    <div>
-        <label style="font-weight:600;">Filter by Department:</label><br>
-        <select id="departmentFilter" onchange="filterStudents()" style="padding:8px; border:1px solid #ddd; border-radius:6px; margin-top:4px;">
-            <option value="all">All Departments</option>
+    <div style="flex:1; min-width:220px; position:relative;">
+        <label style="font-weight:600;">Filter by Section / Department:</label><br>
+        <select id="departmentFilter" multiple size="4" onchange="filterStudents()" class="mobile-only" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; margin-top:4px; min-height:120px;">
+            <option value="all" selected>All Sections</option>
         </select>
+        <div class="desktop-only" style="margin-top:6px;">
+            <button type="button" onclick="togglePicker('department')" style="padding:8px 12px; border-radius:6px; border:1px solid #ddd; background:#fff; cursor:pointer;">Choose Sections</button>
+            <div id="departmentPicker" class="picker-popover desktop-only" style="display:none; left:0; top:44px;">
+                <div id="departmentPickerList"></div>
+                <div style="text-align:right; margin-top:8px;"><button type="button" onclick="applyPickers()" style="padding:8px 12px; border-radius:6px; background:#5a0f1b; color:#fff; border:none;">Select</button></div>
+            </div>
+        </div>
+        <small style="display:block; margin-top:6px; color:#777;">Pick one or more sections; leaving “All” selected shows every section.</small>
     </div>
 </div>
 
@@ -310,7 +362,12 @@ function updateCreateBtnState(){
 // Load students filtered by batch (email prefix) and/or department
 async function loadStudents(department='all', batch='all') {
     try {
-        const res = await fetch(`/api/teacher/students_for_exam?department=${department}&batch=${batch}`);
+        const params = new URLSearchParams();
+        const departments = Array.isArray(department) ? department : [department];
+        const batches = Array.isArray(batch) ? batch : [batch];
+        departments.filter(Boolean).forEach(value => params.append('department', value));
+        batches.filter(Boolean).forEach(value => params.append('batch', value));
+        const res = await fetch(`/api/teacher/students_for_exam?${params.toString()}`);
         const data = await res.json();
         allStudents = data.students || [];
         renderStudentCheckboxes();
@@ -391,9 +448,59 @@ function toggleAllStudents() {
 
 // Filter students by batch (email prefix) and department
 function filterStudents() {
-    const dept  = document.getElementById('departmentFilter').value;
-    const batch = document.getElementById('batchFilter').value;
+    const dept  = getSelectedValues('departmentFilter');
+    const batch = getSelectedValues('batchFilter');
     loadStudents(dept, batch);
+}
+
+function getSelectedValues(selectId) {
+    const select = document.getElementById(selectId);
+    if (!select) return ['all'];
+    const values = Array.from(select.selectedOptions).map(option => option.value).filter(Boolean);
+    if (values.length === 0 || values.includes('all')) return ['all'];
+    return values;
+}
+
+// Desktop picker helpers
+function buildDesktopPickers(){
+    buildPickerFromSelect('batchFilter','batchPickerList');
+    buildPickerFromSelect('departmentFilter','departmentPickerList');
+}
+
+function buildPickerFromSelect(selectId, listId){
+    const sel = document.getElementById(selectId);
+    const list = document.getElementById(listId);
+    if(!sel || !list) return;
+    list.innerHTML = '';
+    Array.from(sel.options).forEach(opt => {
+        const val = opt.value;
+        const label = opt.textContent || opt.innerText || val;
+        const id = `${listId}_${val}`;
+        list.insertAdjacentHTML('beforeend', `<div style="padding:6px;"><label style="cursor:pointer;"><input type="checkbox" value="${val}" id="${id}" ${opt.selected ? 'checked' : ''}> ${label}</label></div>`);
+    });
+}
+
+function togglePicker(type){
+    const el = document.getElementById(type + 'Picker');
+    if(!el) return;
+    el.style.display = (el.style.display === 'none' || el.style.display === '') ? 'block' : 'none';
+}
+
+function getPickerValues(listId){
+    const list = document.getElementById(listId);
+    if(!list) return ['all'];
+    const checked = Array.from(list.querySelectorAll('input[type=checkbox]:checked')).map(i=>i.value).filter(Boolean);
+    if(checked.length === 0 || checked.includes('all')) return ['all'];
+    return checked;
+}
+
+function applyPickers(){
+    const batchVals = getPickerValues('batchPickerList');
+    const deptVals = getPickerValues('departmentPickerList');
+    loadStudents(deptVals, batchVals);
+    // close popovers
+    const b = document.getElementById('batchPicker'); if(b) b.style.display='none';
+    const d = document.getElementById('departmentPicker'); if(d) d.style.display='none';
 }
 
 // Update selected count display
@@ -418,8 +525,11 @@ async function populateFilters() {
         // Department filter - unique departments
         const deptFilter = document.getElementById('departmentFilter');
         const depts = [...new Set(all.map(s => s.department).filter(Boolean))].sort();
-        deptFilter.innerHTML = `<option value="all">All Departments</option>` +
+        deptFilter.innerHTML = `<option value="all">All Sections</option>` +
             depts.map(d => `<option value="${d}">${d}</option>`).join('');
+
+        // also build desktop pickers (checkbox popovers)
+        buildDesktopPickers();
     } catch(err) {
         console.error('Failed to populate filters:', err);
     }

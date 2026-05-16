@@ -21,10 +21,21 @@ from models import Student, Teacher, Exam, ExamStudent, Question
 # db.Model before create_all() is called.  the import has no other side
 # effects; it merely triggers the class definitions in models.py.
 import models
-print("Loading AI Models...")
-sbert = SentenceTransformer("all-MiniLM-L6-v2")
-nli = pipeline("text-classification", model="roberta-large-mnli")
-print("Models Loaded!")
+SKIP_MODEL_LOAD = os.getenv('SKIP_MODEL_LOAD', '').lower() in ('1', 'true', 'yes')
+if SKIP_MODEL_LOAD:
+    print("SKIP_MODEL_LOAD is set — skipping heavy AI model loading")
+    sbert = None
+    nli = None
+else:
+    try:
+        print("Loading AI Models...")
+        sbert = SentenceTransformer("all-MiniLM-L6-v2")
+        nli = pipeline("text-classification", model="roberta-large-mnli")
+        print("Models Loaded!")
+    except Exception as model_err:
+        print(f"Failed to load AI models: {model_err}")
+        sbert = None
+        nli = None
 
 APP_TIMEZONE_OFFSET_MINUTES = int(os.getenv('APP_TIMEZONE_OFFSET_MINUTES', '330'))
 VALID_DEPARTMENTS = {'CSA', 'CSB', 'CYBER', 'AIDS', 'AI', 'MECH', 'CIVIL', 'EEE', 'EC'}
@@ -121,6 +132,9 @@ def evaluate_fill_blank(question, teacher_answer, student_answer):
 def evaluate_semantic(question, teacher_answer, student_answer, sim_threshold=0.65):
     teacher_full = re.sub(r"_+", teacher_answer, question, count=1)
     student_full = re.sub(r"_+", student_answer, question, count=1)
+    # If models weren't loaded (dev mode or OOM), fall back to simple comparison
+    if nli is None or sbert is None:
+        return student_answer.lower().strip() == teacher_answer.lower().strip()
 
     nli_input = f"{teacher_full} </s></s> {student_full}"
     nli_result = nli(nli_input)[0]
@@ -253,17 +267,29 @@ def create_app():
             if not teacher:
                 return jsonify(message='not authenticated'), 401
 
-            dept  = request.args.get('department', 'all')
-            batch = request.args.get('batch', 'all')  # first 2 chars of email
+            def _normalise_multi(values):
+                items = []
+                for value in values:
+                    if not value:
+                        continue
+                    parts = [part.strip() for part in value.split(',') if part.strip()]
+                    items.extend(parts)
+                return [item for item in items if item.lower() != 'all']
+
+            dept_values = _normalise_multi(request.args.getlist('department') or [request.args.get('department', 'all')])
+            batch_values = _normalise_multi(request.args.getlist('batch') or [request.args.get('batch', 'all')])  # first 2 chars of email
 
             query = Student.query
-            if dept != 'all':
-                query = query.filter_by(department=dept)
             students = query.all()
 
+            if dept_values:
+                dept_set = {dept.upper() for dept in dept_values}
+                students = [s for s in students if (s.department or '').upper() in dept_set]
+
             # filter by email prefix (batch) if specified
-            if batch != 'all':
-                students = [s for s in students if (s.email or '').lower().startswith(batch.lower())]
+            if batch_values:
+                batch_set = {batch.lower() for batch in batch_values}
+                students = [s for s in students if (s.email or '').lower()[:2] in batch_set]
 
             result = []
             for s in students:

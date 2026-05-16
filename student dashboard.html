@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Smart Evaluation System | Student Dashboard</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <link rel="stylesheet" href="dashboard.css">
@@ -136,13 +137,53 @@
 @media(max-width:900px){
     .welcome-text{font-size:24px}
     .welcome-subtitle{font-size:12px}
-    .banner-content{flex-direction:column; align-items:flex-start; gap:15px}
-    .profile-pic-section{align-self:flex-end; margin-top:-60px}
+    .welcome-banner{padding:18px; min-height:auto}
+    .banner-content{flex-direction:column; align-items:center; gap:16px; text-align:center}
+    .welcome-section{width:100%; align-items:center}
+    .profile-pic-section{align-self:center; margin-top:0}
+    .welcome-text, .welcome-subtitle{width:100%; text-align:center}
     .cards-section{grid-template-columns:1fr; gap:0; padding:25px;}
     .analysis-card{flex-direction:column; border-left:none; padding:25px 0 0 0;}
     .donut-chart{width:130px; height:130px}
     .profile-avatar{width:120px; height:120px; font-size:50px}
     .stat-value{font-size:20px}
+
+    /* Make results/performance content easier to read on phones */
+    #results .section-title{
+        margin-bottom:12px;
+    }
+    #results .card,
+    #results .result-exam .card{
+        padding:14px;
+    }
+    #results .result-exam .card h3{
+        font-size:18px;
+        margin-bottom:10px;
+    }
+    #results .result-exam .card table{
+        display:block;
+        width:100%;
+        overflow-x:auto;
+        -webkit-overflow-scrolling:touch;
+        font-size:13px;
+    }
+    #results .result-exam .card th,
+    #results .result-exam .card td{
+        white-space:nowrap;
+        padding:10px 8px;
+    }
+    #results .result-exam .card button{
+        padding:6px 10px !important;
+        font-size:13px !important;
+    }
+    #results .result-exam .card > div[style*="background:"]{
+        padding:12px !important;
+        margin-bottom:12px !important;
+    }
+    #results .result-exam .card p{
+        line-height:1.45;
+        font-size:14px;
+    }
 }
 </style>
 </head>
@@ -161,7 +202,7 @@
 })();
 </script>
 <div class="topbar">
-    <!-- Back link removed from topbar -->
+    <button id="mobileMenuBtn" class="mobile-menu-btn" aria-label="Menu"><i class="fas fa-bars"></i></button>
     <h2>Smart Evaluation System</h2>
     <div class="icons">
         
@@ -333,6 +374,30 @@
             console.warn('Fullscreen exit failed:', err);
         }
     }
+
+    function setupMobileSidebar(){
+        const btn = document.getElementById('mobileMenuBtn');
+        const sidebar = document.getElementById('sidebar');
+        if(!btn || !sidebar) return;
+        btn.addEventListener('click', function(){
+            const open = sidebar.classList.toggle('open');
+            document.body.style.overflow = open ? 'hidden' : '';
+        });
+        sidebar.addEventListener('click', function(e){
+            if(e.target.closest('a')){
+                sidebar.classList.remove('open');
+                document.body.style.overflow = '';
+            }
+        });
+        document.addEventListener('keydown', function(e){
+            if(e.key === 'Escape'){
+                sidebar.classList.remove('open');
+                document.body.style.overflow = '';
+            }
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', setupMobileSidebar);
     
     // legacy localStorage exam functions removed; database-backed versions are defined near the bottom.
 function showPage(pageId, element){
