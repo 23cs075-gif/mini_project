@@ -563,26 +563,26 @@ def create_app():
             email = (data.get('email') or '').strip().lower()
             if not _is_valid_email(email):
                 return jsonify(success=False, message='Invalid email'), 400
-
+            # Only allow sending OTP if the email belongs to a registered user
             user = _find_user_by_email(email)
+            if not user:
+                app.logger.info(f"OTP request refused: no account for {email}")
+                return jsonify(success=False, message='Email not registered'), 400
+
             otp = _generate_otp()
             expiry = datetime.utcnow() + timedelta(minutes=_otp_expiry_minutes())
             app.logger.info(f"OTP generated for: {email}")
 
-            if user:
-                user.otp_code = otp
-                user.otp_expiry = expiry
-                db.session.commit()
-                app.logger.info('OTP stored successfully')
-            else:
-                app.logger.info('No matching account found; sending OTP email anyway')
+            user.otp_code = otp
+            user.otp_expiry = expiry
+            db.session.commit()
+            app.logger.info('OTP stored successfully')
 
             sent = send_otp_email(email, otp)
             if not sent:
-                if user:
-                    user.otp_code = None
-                    user.otp_expiry = None
-                    db.session.commit()
+                user.otp_code = None
+                user.otp_expiry = None
+                db.session.commit()
                 return jsonify(success=False, message='OTP could not be sent'), 500
             return jsonify(success=True, message='OTP sent successfully'), 200
         except Exception as e:
@@ -631,21 +631,23 @@ def create_app():
             email = (data.get('email') or '').strip().lower()
             if not _is_valid_email(email):
                 return jsonify(success=False, message='Invalid email'), 400
-
             app.logger.info(f'Username recovery requested for: {email}')
 
             user = Student.query.filter_by(email=email).first()
             if not user:
                 user = Teacher.query.filter_by(email=email).first()
 
-            if user and user.username:
-                sent = send_username_email(email, user.username)
-                if sent:
-                    app.logger.info('Username email sent successfully')
-                else:
-                    app.logger.error('Username email failed')
+            if not user or not user.username:
+                app.logger.info(f'Username recovery refused: no account for {email}')
+                return jsonify(success=False, message='Email not registered'), 400
 
-            return jsonify(success=True, message='If the email exists, the username has been sent.'), 200
+            sent = send_username_email(email, user.username)
+            if sent:
+                app.logger.info('Username email sent successfully')
+                return jsonify(success=True, message='Username sent successfully'), 200
+            else:
+                app.logger.error('Username email failed')
+                return jsonify(success=False, message='Failed to send username'), 500
         except Exception as e:
             app.logger.error(f'Username recovery error: {e}')
             return jsonify(success=True, message='If the email exists, the username has been sent.'), 200
