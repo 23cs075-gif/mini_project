@@ -1,6 +1,7 @@
 import os
 import smtplib
 import ssl
+import requests
 from flask import Flask, request, jsonify, session, redirect
 from config import Config
 from extensions import db
@@ -217,13 +218,33 @@ def create_app():
 
             elif q_type == "english":
                 try:
-                    result = evaluate_semantic(question, teacher_answer, student_answer)
-                    print(f"✅ English Semantic evaluated: Teacher='{teacher_answer}', Student='{student_answer}', Result={result}")
-                except Exception as sem_error:
-                    print(f"⚠️  English Semantic evaluation failed: {sem_error}, falling back to string comparison")
-                    # Fallback to simple comparison if semantic evaluation fails
-                    result = student_answer.lower().strip() == teacher_answer.lower().strip()
+                    response = requests.post(
+                        "https://febinzz-miniproject.hf.space/evaluate-semantic",
+                        json={
+                             "question": question,
+                             "teacher_answer": teacher_answer,
+                             "student_answer": student_answer
+                        },
+                        timeout=30
+                    )
 
+                    result = response.json().get("correct", False)
+
+                    print(
+                        f"✅ English Semantic evaluated via API: "
+                        f"Teacher='{teacher_answer}', "
+                        f"Student='{student_answer}', "
+                        f"Result={result}"
+                    )
+                except Exception as sem_error:
+                    print(
+                        f"⚠️ Semantic API failed: {sem_error}, "
+                        f"falling back to string comparison"
+                    )
+                result = (
+                    student_answer.lower().strip()
+                    == teacher_answer.lower().strip()
+                )
             else:
                 return jsonify({"error": "Invalid type"}), 400
 
