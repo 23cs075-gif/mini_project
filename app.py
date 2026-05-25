@@ -127,7 +127,10 @@ def evaluate_code_question(question, correct_blank, student_answer):
 
 
 def evaluate_fill_blank(question, teacher_answer, student_answer):
-    return student_answer.lower().strip() == teacher_answer.lower().strip()
+    teacher = re.sub(r'[^a-z0-9]', '', teacher_answer.lower().strip())
+    student = re.sub(r'[^a-z0-9]', '', student_answer.lower().strip())
+
+    return teacher == student
 
 
 def evaluate_semantic(question, teacher_answer, student_answer, sim_threshold=0.65):
