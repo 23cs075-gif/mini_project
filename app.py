@@ -244,10 +244,10 @@ def create_app():
                         f"⚠️ Semantic API failed: {sem_error}, "
                         f"falling back to string comparison"
                     )
-                result = (
-                    student_answer.lower().strip()
-                    == teacher_answer.lower().strip()
-                )
+                    result = (
+                        student_answer.lower().strip()
+                        == teacher_answer.lower().strip()
+                    )
             else:
                 return jsonify({"error": "Invalid type"}), 400
 
